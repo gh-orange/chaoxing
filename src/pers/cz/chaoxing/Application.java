@@ -33,6 +33,11 @@ import java.util.concurrent.TimeUnit;
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
+/**
+ * @author 橙子
+ * @version 1.0
+ */
 public class Application {
 
     public static void main(String[] args) {
