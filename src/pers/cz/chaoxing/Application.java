@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit;
 public class Application {
 
     public static void main(String[] args) {
-        System.out.println("ChaoxingVideoTool v1.0");
+        System.out.println("ChaoxingVideoTool v1.0 - powered by orange");
         System.out.println("License - GPLv3: This is a free & share software");
         System.out.println("You can checking source code from: https://github.com/cz111000/chaoxing");
         try {
@@ -73,7 +73,7 @@ public class Application {
                     e.setCheckCode(checkCode);
                 }
             String cardUriModel = null;
-            System.out.print("Input size of threadPool:");
+            System.out.print("Input size of threadPool(suggest max size is 4):");
             int threadCount = scanner.nextInt();
             System.out.print("Using fast mode (may got WARNING, suggest you DO NOT USE) [y/n]:");
             boolean hasSleep = !scanner.next().equalsIgnoreCase("y");
