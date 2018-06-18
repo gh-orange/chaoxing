@@ -1,11 +1,11 @@
-# chaoxingVideoTool
+# ChaoxingVideoTool
 A tool for view chaoxing video faster
 
 It can auto playing video on background. The only you need to do is pressing your account, password and checkCode.
 
 Enjoy your days, aha!
 
-# license
+# License
 Copyright (C) 2018  orange
 
 This program is free software: you can redistribute it and/or modify
