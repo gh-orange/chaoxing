@@ -119,7 +119,7 @@ public class ChaoxingUtil {
      * @param playSecond
      * @return
      */
-    public static boolean onPlayProgress(PlayerInfo playerInfo, VideoInfo videoInfo, int playSecond) {
+    public static boolean onPlayProgress(PlayerInfo playerInfo, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
         return sendLog(playerInfo, videoInfo, playSecond, 0);
     }
 
@@ -130,7 +130,7 @@ public class ChaoxingUtil {
      * @param videoInfo
      * @return
      */
-    public static boolean onStart(PlayerInfo playerInfo, VideoInfo videoInfo) {
+    public static boolean onStart(PlayerInfo playerInfo, VideoInfo videoInfo) throws CheckCodeException {
         return sendLog(playerInfo, videoInfo, (int) (playerInfo.getAttachments()[0].getHeadOffset() / 1000), 3);
     }
 
@@ -141,7 +141,7 @@ public class ChaoxingUtil {
      * @param videoInfo
      * @return
      */
-    public static boolean onEnd(PlayerInfo playerInfo, VideoInfo videoInfo) {
+    public static boolean onEnd(PlayerInfo playerInfo, VideoInfo videoInfo) throws CheckCodeException {
         return sendLog(playerInfo, videoInfo, videoInfo.getDuration(), 4);
     }
 
@@ -153,7 +153,7 @@ public class ChaoxingUtil {
      * @param playSecond
      * @return
      */
-    public static boolean onPlay(PlayerInfo playerInfo, VideoInfo videoInfo, int playSecond) {
+    public static boolean onPlay(PlayerInfo playerInfo, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
         return sendLog(playerInfo, videoInfo, playSecond, 3);
     }
 
@@ -165,7 +165,7 @@ public class ChaoxingUtil {
      * @param playSecond
      * @return
      */
-    public static boolean onPause(PlayerInfo playerInfo, VideoInfo videoInfo, int playSecond) {
+    public static boolean onPause(PlayerInfo playerInfo, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
         if (playerInfo.getDefaults().getChapterId() != null && !playerInfo.getDefaults().getChapterId().isEmpty())
             return sendLog(playerInfo, videoInfo, playSecond, 2);
         return false;
@@ -210,7 +210,7 @@ public class ChaoxingUtil {
      * return;
      * }
      **/
-    private static boolean sendLog(PlayerInfo playerInfo, VideoInfo videoInfo, int playSecond, int dragStatus) {
+    private static boolean sendLog(PlayerInfo playerInfo, VideoInfo videoInfo, int playSecond, int dragStatus) throws CheckCodeException {
         /*
         don't send when review mode
         */
@@ -273,10 +273,14 @@ public class ChaoxingUtil {
         while (md5Str.length() < 32)
             md5Str.insert(0, "0");
         params.put("enc", md5Str.toString());
+        String responseStr;
         if (videoInfo.getDtoken() != null && !videoInfo.getDtoken().isEmpty())
-            return JSONObject.parseObject(session.get(playerInfo.getDefaults().getReportUrl() + "/" + videoInfo.getDtoken()).params(params).send().readToText()).getBoolean("isPassed");
+            responseStr = session.get(playerInfo.getDefaults().getReportUrl() + "/" + videoInfo.getDtoken()).params(params).send().readToText();
         else
-            return JSONObject.parseObject(session.get(playerInfo.getDefaults().getReportUrl()).params(params).send().readToText()).getBoolean("isPassed");
+            responseStr = session.get(playerInfo.getDefaults().getReportUrl()).params(params).send().readToText();
+        if (session.get(responseStr).send().readToText().contains("操作出现异常"))
+            throw new CheckCodeException("https://mooc1-1.chaoxing.com", playerInfo.getDefaults().getReportUrl(), session);
+        return JSONObject.parseObject(responseStr).getBoolean("isPassed");
     }
 
     /**
@@ -315,6 +319,16 @@ public class ChaoxingUtil {
 
     public static void saveCheckCode(String path) {
         session.get("http://passport2.chaoxing.com/num/code?" + System.currentTimeMillis()).send().writeToFile(path);
+    }
+
+    public static boolean openFile(String path) {
+        try {
+            Desktop.getDesktop().open(new File(path));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return true;
+        }
+        return false;
     }
 
 }

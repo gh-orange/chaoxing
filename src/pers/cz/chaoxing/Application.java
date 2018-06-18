@@ -6,8 +6,6 @@ import pers.cz.chaoxing.exception.CheckCodeException;
 import pers.cz.chaoxing.thread.PlayTask;
 import pers.cz.chaoxing.util.ChaoxingUtil;
 
-import java.awt.*;
-import java.io.File;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.*;
@@ -56,7 +54,7 @@ public class Application {
             password = scanner.nextLine();
             do {
                 ChaoxingUtil.saveCheckCode(checkCodePath);
-                if (openFile(checkCodePath))
+                if (ChaoxingUtil.openFile(checkCodePath))
                     System.out.println("CheckCode image path:" + checkCodePath);
                 System.out.print("Input checkCode:");
                 checkCode = scanner.nextLine();
@@ -68,7 +66,7 @@ public class Application {
                     classesUri = ChaoxingUtil.getClassesUri(baseUri);
                 } catch (CheckCodeException e) {
                     e.saveCheckCode(checkCodePath);
-                    if (openFile(checkCodePath))
+                    if (ChaoxingUtil.openFile(checkCodePath))
                         System.out.println("CheckCode image path:" + checkCodePath);
                     System.out.print("Input checkCode:");
                     checkCode = scanner.nextLine();
@@ -118,7 +116,7 @@ public class Application {
                             break;
                         } catch (CheckCodeException e) {
                             e.saveCheckCode(checkCodePath);
-                            if (openFile(checkCodePath))
+                            if (ChaoxingUtil.openFile(checkCodePath))
                                 System.out.println("CheckCode image path:" + checkCodePath);
                             System.out.print("Input checkCode:");
                             checkCode = scanner.nextLine();
@@ -146,16 +144,6 @@ public class Application {
         } catch (RequestsException e) {
             System.out.println("Net connection error");
         }
-    }
-
-    private static boolean openFile(String path) {
-        try {
-            Desktop.getDesktop().open(new File(path));
-        } catch (Exception e) {
-            e.printStackTrace();
-            return true;
-        }
-        return false;
     }
 
     private static void inputCheck(Scanner scanner, List<PlayTask> threadList) {
