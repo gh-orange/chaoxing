@@ -5,6 +5,13 @@ It can auto playing video on background. The only you need to do is pressing you
 
 Enjoy your days, aha!
 
+# How to Use
+Necessary condition:
++ Java runtime environment
+
+Typing this words in your console:
++ java -jar chaoxing.jar
+
 # License
 Copyright (C) 2018  orange
 

@@ -43,7 +43,7 @@ public class Application {
     public static void main(String[] args) {
         System.out.println("ChaoxingVideoTool v1.0");
         System.out.println("License - GPLv3: This is a free & share software");
-        System.out.print("You can checking source code from: https://github.com/cz111000/chaoxing");
+        System.out.println("You can checking source code from: https://github.com/cz111000/chaoxing");
         try {
             String checkCodePath = "./checkCode.jpeg";
             Scanner scanner = new Scanner(System.in);
