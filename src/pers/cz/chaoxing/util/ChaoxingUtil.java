@@ -278,7 +278,7 @@ public class ChaoxingUtil {
             responseStr = session.get(playerInfo.getDefaults().getReportUrl() + "/" + videoInfo.getDtoken()).params(params).send().readToText();
         else
             responseStr = session.get(playerInfo.getDefaults().getReportUrl()).params(params).send().readToText();
-        if (session.get(responseStr).send().readToText().contains("操作出现异常"))
+        if (responseStr.contains("操作出现异常"))
             throw new CheckCodeException("https://mooc1-1.chaoxing.com", playerInfo.getDefaults().getReportUrl(), session);
         return JSONObject.parseObject(responseStr).getBoolean("isPassed");
     }
