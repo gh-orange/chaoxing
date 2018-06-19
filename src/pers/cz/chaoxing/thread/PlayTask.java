@@ -80,15 +80,17 @@ public class PlayTask implements Runnable {
                                 checkCodeCallBack.call(e.getUri(), e.getSession());
                         }
                 } while (pause || !isPassed);
-                if (!stop)
-                    while (true)
-                        try {
+                while (true)
+                    try {
+                        if (stop)
+                            CXUtil.onPause(playerInfo, videoInfo, playSecond);
+                        else
                             CXUtil.onEnd(playerInfo, videoInfo);
-                            break;
-                        } catch (CheckCodeException e) {
-                            if (checkCodeCallBack != null)
-                                checkCodeCallBack.call(e.getUri(), e.getSession());
-                        }
+                        break;
+                    } catch (CheckCodeException e) {
+                        if (checkCodeCallBack != null)
+                            checkCodeCallBack.call(e.getUri(), e.getSession());
+                    }
                 checkCodeCallBack.print(this.videoName + "[finish]");
             } else if (!questions.isEmpty())
                 for (Map.Entry<QuestionConfig, OptionInfo> question : questions.entrySet())
