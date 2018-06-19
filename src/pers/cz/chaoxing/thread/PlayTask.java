@@ -1,24 +1,26 @@
 package pers.cz.chaoxing.thread;
 
+import pers.cz.chaoxing.callback.CallBack;
 import pers.cz.chaoxing.common.*;
 import pers.cz.chaoxing.exception.CheckCodeException;
-import pers.cz.chaoxing.util.ChaoxingUtil;
+import pers.cz.chaoxing.util.CXUtil;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Scanner;
 
 public class PlayTask implements Runnable {
-    private PlayerInfo playerInfo;
-    private VideoInfo videoInfo;
-    private String baseUri;
+    private final PlayerInfo playerInfo;
+    private final VideoInfo videoInfo;
+    private final String baseUri;
+    private String videoName;
     private int playSecond;
     private boolean pause;
     private boolean stop;
     private boolean hasSleep;
+    private CallBack<?> checkCodeCallBack;
 
     public PlayTask(PlayerInfo playerInfo, VideoInfo videoInfo, String baseUri) {
         this.playerInfo = playerInfo;
@@ -27,28 +29,27 @@ public class PlayTask implements Runnable {
         this.playSecond = (int) (this.playerInfo.getAttachments()[0].getHeadOffset() / 1000);
         this.stop = this.pause = false;
         this.hasSleep = true;
+        try {
+            this.videoName = URLDecoder.decode(videoInfo.getFilename(), "utf-8");
+        } catch (UnsupportedEncodingException ignored) {
+            this.videoName = videoInfo.getFilename();
+        }
     }
 
     @Override
     public void run() {
         try {
-            Scanner scanner = new Scanner(System.in);
-            String checkCode;
-            String checkCodePath = "./checkCode.jpeg";
             boolean isPassed;
             Map<QuestionConfig, OptionInfo> questions = getQuestions(playerInfo);
             while (true)
                 try {
-                    isPassed = ChaoxingUtil.onStart(playerInfo, videoInfo);
+                    isPassed = CXUtil.onStart(playerInfo, videoInfo);
                     break;
                 } catch (CheckCodeException e) {
-                    e.saveCheckCode(checkCodePath);
-                    if (ChaoxingUtil.openFile(checkCodePath))
-                        System.out.println("CheckCode image path:" + checkCodePath);
-                    System.out.print("Input checkCode:");
-                    checkCode = scanner.nextLine();
-                    e.setCheckCode(checkCode);
+                    if (checkCodeCallBack != null)
+                        checkCodeCallBack.call(e.getUri(), e.getSession());
                 }
+            checkCodeCallBack.print(this.videoName + "[" + (int) ((float) this.playSecond / this.videoInfo.getDuration() * 100) + "%]");
             if (!isPassed) {
                 do {
                     if (hasSleep)
@@ -56,47 +57,41 @@ public class PlayTask implements Runnable {
                             Thread.sleep(1000);
                     if (stop)
                         break;
-                    if (!pause)
+                    if (!pause) {
+                        checkCodeCallBack.print(this.videoName + "[" + (int) ((float) this.playSecond / this.videoInfo.getDuration() * 100) + "%]");
                         playSecond += playerInfo.getDefaults().getReportTimeInterval();
+                    }
                     if (playSecond > videoInfo.getDuration()) {
                         playSecond = videoInfo.getDuration();
                         break;
                     }
                     for (Map.Entry<QuestionConfig, OptionInfo> question : questions.entrySet())
                         if (playSecond >= question.getKey().getStartTime())
-                            if (ChaoxingUtil.answerQuestion(baseUri, question.getKey().getValidationUrl(), question.getKey().getResourceId(), question.getValue().getName())) {
+                            if (CXUtil.answerQuestion(baseUri, question.getKey().getValidationUrl(), question.getKey().getResourceId(), question.getValue().getName())) {
                                 questions.remove(question.getKey());
                                 System.out.println("answer success:" + question.getKey().getDescription() + "=" + question.getValue().getDescription());
                             }
                     while (true)
                         try {
-                            isPassed = ChaoxingUtil.onPlayProgress(playerInfo, videoInfo, playSecond);
+                            isPassed = CXUtil.onPlayProgress(playerInfo, videoInfo, playSecond);
                             break;
                         } catch (CheckCodeException e) {
-                            e.saveCheckCode(checkCodePath);
-                            if (ChaoxingUtil.openFile(checkCodePath))
-                                System.out.println("CheckCode image path:" + checkCodePath);
-                            System.out.print("Input checkCode:");
-                            checkCode = scanner.nextLine();
-                            e.setCheckCode(checkCode);
+                            if (checkCodeCallBack != null)
+                                checkCodeCallBack.call(e.getUri(), e.getSession());
                         }
                 } while (pause || !isPassed);
                 if (!stop)
                     while (true)
                         try {
-                            ChaoxingUtil.onEnd(playerInfo, videoInfo);
+                            CXUtil.onEnd(playerInfo, videoInfo);
                             break;
                         } catch (CheckCodeException e) {
-                            e.saveCheckCode(checkCodePath);
-                            if (ChaoxingUtil.openFile(checkCodePath))
-                                System.out.println("CheckCode image path:" + checkCodePath);
-                            System.out.print("Input checkCode:");
-                            checkCode = scanner.nextLine();
-                            e.setCheckCode(checkCode);
+                            if (checkCodeCallBack != null)
+                                checkCodeCallBack.call(e.getUri(), e.getSession());
                         }
             } else if (!questions.isEmpty())
                 for (Map.Entry<QuestionConfig, OptionInfo> question : questions.entrySet())
-                    if (ChaoxingUtil.answerQuestion(baseUri, question.getKey().getValidationUrl(), question.getKey().getResourceId(), question.getValue().getName())) {
+                    if (CXUtil.answerQuestion(baseUri, question.getKey().getValidationUrl(), question.getKey().getResourceId(), question.getValue().getName())) {
                         questions.remove(question.getKey());
                         System.out.println("answer success:" + question.getKey().getDescription() + "=" + question.getValue().getDescription());
                     }
@@ -121,20 +116,15 @@ public class PlayTask implements Runnable {
         this.playSecond = playSecond;
     }
 
-    public String getVideoName() {
-        try {
-            return URLDecoder.decode(videoInfo.getFilename(), "utf-8");
-        } catch (UnsupportedEncodingException ignored) {
-            return videoInfo.getFilename();
-        }
-    }
-
-    public int getPlayedPercent() {
-        return (int) ((float) this.playSecond / this.videoInfo.getDuration() * 100);
-    }
-
     private Map<QuestionConfig, OptionInfo> getQuestions(PlayerInfo playerInfo) {
-        List<QuestionInfo> questionInfoList = ChaoxingUtil.getQuestionInfos(playerInfo.getDefaults().getInitdataUrl(), playerInfo.getAttachments()[0].getMid());
+        List<QuestionInfo> questionInfoList;
+        while (true)
+            try {
+                questionInfoList = CXUtil.getQuestions(playerInfo.getDefaults().getInitdataUrl(), playerInfo.getAttachments()[0].getMid());
+                break;
+            } catch (CheckCodeException e) {
+                this.checkCodeCallBack.call(e.getUri(), e.getSession());
+            }
         Map<QuestionConfig, OptionInfo> questions = new HashMap<>();
         for (QuestionInfo questionInfo : questionInfoList)
             if (questionInfo.getStyle().equals("QUIZ"))
@@ -148,4 +138,7 @@ public class PlayTask implements Runnable {
         return questions;
     }
 
+    public void setCheckCodeCallBack(CallBack<?> checkCodeCallBack) {
+        this.checkCodeCallBack = checkCodeCallBack;
+    }
 }

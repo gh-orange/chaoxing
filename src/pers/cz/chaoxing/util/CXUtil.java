@@ -4,9 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONException;
 import com.alibaba.fastjson.JSONObject;
-import net.dongliu.requests.RawResponse;
-import net.dongliu.requests.Requests;
-import net.dongliu.requests.Session;
+import net.dongliu.requests.*;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import pers.cz.chaoxing.common.PlayerInfo;
@@ -23,7 +21,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.List;
 
-public class ChaoxingUtil {
+public class CXUtil {
 
     private static Session session = Requests.session();
 
@@ -51,13 +49,13 @@ public class ChaoxingUtil {
         return !response.readToText().contains("用户登录");
     }
 
-    public static String getClassesUri(String baseUri) throws CheckCodeException {
-        RawResponse response = session.get("http://i.mooc.chaoxing.com/space/index.shtml").send();
-        Document document = Jsoup.parse(response.readToText());
+    public static String getClassesUri() throws CheckCodeException {
+        Document document = Jsoup.parse(session.get("http://i.mooc.chaoxing.com/space/index.shtml").send().readToText());
         String src = document.select("div.mainright iframe").attr("src");
-        if (session.get(src).send().readToText().contains("操作出现异常"))
-            throw new CheckCodeException(baseUri, src, session);
-        return src;
+        RawResponse response = session.get(src).maxRedirectCount(1).send();
+        if (response.getStatusCode() == StatusCodes.FOUND)
+            throw new CheckCodeException(response.getHeader("location"), session);
+        return response.getURL();
     }
 
     public static List<String> getClasses(String uri) {
@@ -72,21 +70,23 @@ public class ChaoxingUtil {
     }
 
     public static String getCardUriModel(String baseUri, String uri, Map<String, String> params) throws CheckCodeException {
-        String cardUri = session.get(baseUri + uri).params(params).send().readToText();
-        if (cardUri.contains("操作出现异常"))
-            throw new CheckCodeException(baseUri, baseUri + uri, params, session);
+        RawResponse response = session.get(baseUri + uri).params(params).send();
+        if (response.getStatusCode() == StatusCodes.FOUND)
+            throw new CheckCodeException(response.getHeader("location"), session);
+        String cardUri = response.readToText();
         String beginStr = "document.getElementById(\"iframe\").src=\"";
         String endStr = "\";";
         int beginIndex = cardUri.indexOf(beginStr, cardUri.indexOf("getElementById(\"mainid\")")) + beginStr.length();
-        return cardUri.substring(beginIndex, cardUri.indexOf(endStr, beginIndex)).replaceAll("[\"+|+\"]", "");
+        return cardUri.substring(beginIndex, cardUri.indexOf(endStr, beginIndex)).replaceAll("[\"+]", "");
     }
 
     public static PlayerInfo getPlayerInfo(String baseUri, String cardUri, Map<String, String> params) throws CheckCodeException {
         for (Map.Entry<String, String> param : params.entrySet())
             cardUri = cardUri.replaceAll("(?i)=" + param.getKey(), "=" + param.getValue());
-        String responseStr = session.get(baseUri + cardUri).send().readToText();
-        if (responseStr.contains("操作出现异常"))
-            throw new CheckCodeException(baseUri, baseUri + cardUri, session);
+        RawResponse response = session.get(baseUri + cardUri).send();
+        if (response.getStatusCode() == StatusCodes.FOUND)
+            throw new CheckCodeException(response.getHeader("location"), session);
+        String responseStr = response.readToText();
         String beginStr = "mArg = ";
         String endStr = ";";
         int beginIndex = responseStr.indexOf(beginStr, responseStr.indexOf("try{")) + beginStr.length();
@@ -273,14 +273,14 @@ public class ChaoxingUtil {
         while (md5Str.length() < 32)
             md5Str.insert(0, "0");
         params.put("enc", md5Str.toString());
-        String responseStr;
+        RawResponse response;
         if (videoInfo.getDtoken() != null && !videoInfo.getDtoken().isEmpty())
-            responseStr = session.get(playerInfo.getDefaults().getReportUrl() + "/" + videoInfo.getDtoken()).params(params).send().readToText();
+            response = session.get(playerInfo.getDefaults().getReportUrl() + "/" + videoInfo.getDtoken()).params(params).followRedirect(false).send();
         else
-            responseStr = session.get(playerInfo.getDefaults().getReportUrl()).params(params).send().readToText();
-        if (responseStr.contains("操作出现异常"))
-            throw new CheckCodeException("https://mooc1-1.chaoxing.com", playerInfo.getDefaults().getReportUrl(), session);
-        return JSONObject.parseObject(responseStr).getBoolean("isPassed");
+            response = session.get(playerInfo.getDefaults().getReportUrl()).params(params).followRedirect(false).send();
+        if (response.getStatusCode() == StatusCodes.FOUND)
+            throw new CheckCodeException(response.getHeader("location"), session);
+        return JSONObject.parseObject(response.readToText()).getBoolean("isPassed");
     }
 
     /**
@@ -290,16 +290,19 @@ public class ChaoxingUtil {
      * @param mid
      * @return
      */
-    public static List<QuestionInfo> getQuestionInfos(String initDataUrl, String mid) {
+    public static List<QuestionInfo> getQuestions(String initDataUrl, String mid) throws CheckCodeException {
         HashMap<String, String> params = new HashMap<>();
         params.put("mid", mid);
         params.put("start", "undefined");
-        return JSONArray.parseArray(session.get(initDataUrl).params(params).send().readToText(), QuestionInfo.class);
+        RawResponse response = session.get(initDataUrl).params(params).followRedirect(false).send();
+        if (response.getStatusCode() == StatusCodes.FOUND)
+            throw new CheckCodeException(response.getHeader("location"), session);
+        return JSONArray.parseArray(response.readToText(), QuestionInfo.class);
     }
 
-    public static boolean answerQuestion(String baseUri, String validationUrl, String resourceid, String answer) {
+    public static boolean answerQuestion(String baseUri, String validationUrl, String resourceId, String answer) {
         HashMap<String, String> params = new HashMap<>();
-        params.put("resourceid", resourceid);
+        params.put("resourceid", resourceId);
         params.put("answer", "'" + answer + "'");
         JSONObject jsonObject = JSONObject.parseObject(session.get(baseUri + validationUrl).params(params).send().readToText());
         return jsonObject.getString("answer").equals(answer) && jsonObject.getBoolean("isRight");
@@ -319,16 +322,6 @@ public class ChaoxingUtil {
 
     public static void saveCheckCode(String path) {
         session.get("http://passport2.chaoxing.com/num/code?" + System.currentTimeMillis()).send().writeToFile(path);
-    }
-
-    public static boolean openFile(String path) {
-        try {
-            Desktop.getDesktop().open(new File(path));
-        } catch (Exception e) {
-            e.printStackTrace();
-            return true;
-        }
-        return false;
     }
 
 }

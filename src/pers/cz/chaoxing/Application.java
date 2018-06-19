@@ -1,10 +1,11 @@
 package pers.cz.chaoxing;
 
 import net.dongliu.requests.exception.RequestsException;
+import pers.cz.chaoxing.callback.CheckCodeCallBack;
 import pers.cz.chaoxing.common.*;
 import pers.cz.chaoxing.exception.CheckCodeException;
 import pers.cz.chaoxing.thread.PlayTask;
-import pers.cz.chaoxing.util.ChaoxingUtil;
+import pers.cz.chaoxing.util.CXUtil;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
@@ -43,7 +44,7 @@ public class Application {
         System.out.println("License - GPLv3: This is a free & share software");
         System.out.println("You can checking source code from: https://github.com/cz111000/chaoxing");
         try {
-            String checkCodePath = "./checkCode.jpeg";
+            CheckCodeCallBack callBack = new CheckCodeCallBack("./checkCode.jpeg");
             Scanner scanner = new Scanner(System.in);
             String username;
             String password;
@@ -53,24 +54,19 @@ public class Application {
             System.out.print("Input password:");
             password = scanner.nextLine();
             do {
-                ChaoxingUtil.saveCheckCode(checkCodePath);
-                if (ChaoxingUtil.openFile(checkCodePath))
-                    System.out.println("CheckCode image path:" + checkCodePath);
+                CXUtil.saveCheckCode(callBack.getCheckCodePath());
+                if (callBack.openFile(callBack.getCheckCodePath()))
+                    System.out.println("CheckCode image path:" + callBack.getCheckCodePath());
                 System.out.print("Input checkCode:");
                 checkCode = scanner.nextLine();
-            } while (!ChaoxingUtil.login(username, password, checkCode));
+            } while (!CXUtil.login(username, password, checkCode));
             String baseUri = "https://mooc1-1.chaoxing.com";
             String classesUri = null;
             while (classesUri == null || classesUri.isEmpty())
                 try {
-                    classesUri = ChaoxingUtil.getClassesUri(baseUri);
+                    classesUri = CXUtil.getClassesUri();
                 } catch (CheckCodeException e) {
-                    e.saveCheckCode(checkCodePath);
-                    if (ChaoxingUtil.openFile(checkCodePath))
-                        System.out.println("CheckCode image path:" + checkCodePath);
-                    System.out.print("Input checkCode:");
-                    checkCode = scanner.nextLine();
-                    e.setCheckCode(checkCode);
+                    callBack.call(e.getUri(), e.getSession());
                 }
             String cardUriModel = null;
             System.out.print("Input size of threadPool(suggest max size is 4):");
@@ -80,8 +76,8 @@ public class Application {
             ExecutorService threadPool = Executors.newFixedThreadPool(threadCount);
             List<PlayTask> threadList = new ArrayList<>();
 //            System.out.println("Press 'p' to pause, press 's' to stop, press any key to continue");
-            for (String classUri : ChaoxingUtil.getClasses(classesUri))
-                for (String videoUri : ChaoxingUtil.getVideos(baseUri + classUri)) {
+            for (String classUri : CXUtil.getClasses(classesUri))
+                for (String videoUri : CXUtil.getVideos(baseUri + classUri)) {
                     //parse uri to params
                     String[] videoUris = videoUri.split("\\?", 2);
                     Map<String, String> params = new HashMap<>();
@@ -92,57 +88,40 @@ public class Application {
                     while (true)
                         try {
                             if (cardUriModel == null || cardUriModel.isEmpty())
-                                cardUriModel = ChaoxingUtil.getCardUriModel(baseUri, videoUris[0], params);
-                            PlayerInfo playerInfo = ChaoxingUtil.getPlayerInfo(baseUri, cardUriModel, params);
+                                cardUriModel = CXUtil.getCardUriModel(baseUri, videoUris[0], params);
+                            PlayerInfo playerInfo = CXUtil.getPlayerInfo(baseUri, cardUriModel, params);
                             if (playerInfo.getAttachments().length > 0 && !playerInfo.getAttachments()[0].isPassed()) {
-                                VideoInfo videoInfo = ChaoxingUtil.getVideoInfo(baseUri, "/ananas/status", playerInfo.getAttachments()[0].getObjectId(), playerInfo.getDefaults().getFid());
+                                VideoInfo videoInfo = CXUtil.getVideoInfo(baseUri, "/ananas/status", playerInfo.getAttachments()[0].getObjectId(), playerInfo.getDefaults().getFid());
                                 String videoName = videoInfo.getFilename();
                                 try {
                                     videoName = URLDecoder.decode(videoName, "utf-8");
                                 } catch (UnsupportedEncodingException ignored) {
                                 }
                                 System.out.println("Video did not pass:" + videoName);
-                                if (ChaoxingUtil.startRecord(baseUri, params)) {
+                                if (CXUtil.startRecord(baseUri, params)) {
                                     System.out.println("Add playTask to ThreadPool:" + videoName);
                                     char[] charArray = playerInfo.getAttachments()[0].getType().toCharArray();
                                     charArray[0] -= 32;
                                     playerInfo.getAttachments()[0].setType(String.valueOf(charArray));
                                     PlayTask playTask = new PlayTask(playerInfo, videoInfo, baseUri);
+                                    playTask.setCheckCodeCallBack(callBack);
                                     playTask.setHasSleep(hasSleep);
-                                    threadPool.execute(playTask);
                                     threadList.add(playTask);
+                                    threadPool.execute(playTask);
                                 }
                             }
                             break;
                         } catch (CheckCodeException e) {
-                            e.saveCheckCode(checkCodePath);
-                            if (ChaoxingUtil.openFile(checkCodePath))
-                                System.out.println("CheckCode image path:" + checkCodePath);
-                            System.out.print("Input checkCode:");
-                            checkCode = scanner.nextLine();
-                            e.setCheckCode(checkCode);
-                        }
-                    if (threadList.size() != 0 && threadList.size() % threadCount == 0)
-                        try {
-                            do {
-                                printTasks(threadList);
-//                                inputCheck(scanner, threadList);
-                            } while (!threadPool.awaitTermination(1, TimeUnit.MINUTES));
-                        } catch (InterruptedException ignored) {
+                            callBack.call(e.getUri(), e.getSession());
                         }
                 }
-            if (threadList.size() != 0)
-                try {
-                    do {
-                        printTasks(threadList);
-//                                inputCheck(scanner, threadList);
-                    } while (!threadPool.awaitTermination(1, TimeUnit.MINUTES));
-                } catch (InterruptedException ignored) {
-                }
+            threadPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
             threadPool.shutdown();
             System.out.println("Finished task count:" + threadList.size());
         } catch (RequestsException e) {
             System.out.println("Net connection error");
+        } catch (InterruptedException e) {
+            System.out.println("ThreadPool error");
         }
     }
 
@@ -165,15 +144,6 @@ public class Application {
                 task.setPause(pause);
             }
         }
-    }
-
-    private static void printTasks(List<PlayTask> threadList) {
-//        try {
-//            new ProcessBuilder("cmd", "/c", "cls").inheritIO().start().waitFor();
-//        } catch (Exception ignored) {
-//        }
-        for (PlayTask task : threadList)
-            System.out.println(task.getVideoName() + "[" + task.getPlayedPercent() + "%]");
     }
 
 }
