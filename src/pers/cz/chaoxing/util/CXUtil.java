@@ -300,11 +300,14 @@ public class CXUtil {
         return JSONArray.parseArray(response.readToText(), QuestionInfo.class);
     }
 
-    public static boolean answerQuestion(String baseUri, String validationUrl, String resourceId, String answer) {
+    public static boolean answerQuestion(String baseUri, String validationUrl, String resourceId, String answer) throws CheckCodeException {
         HashMap<String, String> params = new HashMap<>();
         params.put("resourceid", resourceId);
         params.put("answer", "'" + answer + "'");
-        JSONObject jsonObject = JSONObject.parseObject(session.get(baseUri + validationUrl).params(params).send().readToText());
+        RawResponse response = session.get(baseUri + validationUrl).params(params).send();
+        if (response.getStatusCode() == StatusCodes.FOUND)
+            throw new CheckCodeException(response.getHeader("location"), session);
+        JSONObject jsonObject = JSONObject.parseObject(response.readToText());
         return jsonObject.getString("answer").equals(answer) && jsonObject.getBoolean("isRight");
     }
 

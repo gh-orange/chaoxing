@@ -67,7 +67,7 @@ public class PlayTask implements Runnable {
                     }
                     for (Map.Entry<QuestionConfig, OptionInfo> question : questions.entrySet())
                         if (playSecond >= question.getKey().getStartTime())
-                            if (CXUtil.answerQuestion(baseUri, question.getKey().getValidationUrl(), question.getKey().getResourceId(), question.getValue().getName())) {
+                            if (answerQuestion(question)) {
                                 questions.remove(question.getKey());
                                 System.out.println("answer success:" + question.getKey().getDescription() + "=" + question.getValue().getDescription());
                             }
@@ -91,13 +91,26 @@ public class PlayTask implements Runnable {
                         }
             } else if (!questions.isEmpty())
                 for (Map.Entry<QuestionConfig, OptionInfo> question : questions.entrySet())
-                    if (CXUtil.answerQuestion(baseUri, question.getKey().getValidationUrl(), question.getKey().getResourceId(), question.getValue().getName())) {
+                    if (answerQuestion(question)) {
                         questions.remove(question.getKey());
                         System.out.println("answer success:" + question.getKey().getDescription() + "=" + question.getValue().getDescription());
                     }
         } catch (InterruptedException e) {
             System.out.println(e.getMessage());
         }
+    }
+
+    private boolean answerQuestion(Map.Entry<QuestionConfig, OptionInfo> question) {
+        boolean isPassed;
+        while (true)
+            try {
+                isPassed = CXUtil.answerQuestion(baseUri, question.getKey().getValidationUrl(), question.getKey().getResourceId(), question.getValue().getName());
+                break;
+            } catch (CheckCodeException e) {
+                if (checkCodeCallBack != null)
+                    checkCodeCallBack.call(e.getUri(), e.getSession());
+            }
+        return isPassed;
     }
 
     public void setStop(boolean stop) {

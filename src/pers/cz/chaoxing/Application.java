@@ -114,6 +114,7 @@ public class Application {
                         } catch (CheckCodeException e) {
                             callBack.call(e.getUri(), e.getSession());
                         }
+                    threadPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
                 }
             threadPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
             threadPool.shutdown();
