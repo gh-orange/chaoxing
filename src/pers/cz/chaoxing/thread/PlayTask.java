@@ -49,7 +49,7 @@ public class PlayTask implements Runnable {
                     if (checkCodeCallBack != null)
                         checkCodeCallBack.call(e.getUri(), e.getSession());
                 }
-            checkCodeCallBack.print(this.videoName + "[" + (int) ((float) this.playSecond / this.videoInfo.getDuration() * 100) + "%]");
+            checkCodeCallBack.print(this.videoName + "[start]");
             if (!isPassed) {
                 do {
                     if (hasSleep)
@@ -89,6 +89,7 @@ public class PlayTask implements Runnable {
                             if (checkCodeCallBack != null)
                                 checkCodeCallBack.call(e.getUri(), e.getSession());
                         }
+                checkCodeCallBack.print(this.videoName + "[finish]");
             } else if (!questions.isEmpty())
                 for (Map.Entry<QuestionConfig, OptionInfo> question : questions.entrySet())
                     if (answerQuestion(question)) {
