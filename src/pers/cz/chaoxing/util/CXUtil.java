@@ -71,7 +71,7 @@ public class CXUtil {
     }
 
     public static String getCardUriModel(String baseUri, String uri, Map<String, String> params) throws CheckCodeException {
-        RawResponse response = session.get(baseUri + uri).params(params).send();
+        RawResponse response = session.get(baseUri + uri).params(params).followRedirect(false).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(response.getHeader("location"), session);
         String cardUri = response.readToText();
@@ -84,7 +84,7 @@ public class CXUtil {
     public static PlayerInfo getPlayerInfo(String baseUri, String cardUri, Map<String, String> params) throws CheckCodeException {
         for (Map.Entry<String, String> param : params.entrySet())
             cardUri = cardUri.replaceAll("(?i)=" + param.getKey(), "=" + param.getValue());
-        RawResponse response = session.get(baseUri + cardUri).send();
+        RawResponse response = session.get(baseUri + cardUri).followRedirect(false).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(response.getHeader("location"), session);
         String responseStr = response.readToText();
@@ -305,7 +305,7 @@ public class CXUtil {
         HashMap<String, String> params = new HashMap<>();
         params.put("resourceid", resourceId);
         params.put("answer", "'" + answer + "'");
-        RawResponse response = session.get(baseUri + validationUrl).params(params).send();
+        RawResponse response = session.get(baseUri + validationUrl).params(params).followRedirect(false).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(response.getHeader("location"), session);
         JSONObject jsonObject = JSONObject.parseObject(response.readToText());
