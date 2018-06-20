@@ -23,7 +23,6 @@ public class PlayTask implements Runnable, Callable<Boolean> {
     private boolean stop;
     private boolean hasSleep;
     private CallBack<?> checkCodeCallBack;
-    private CountDownLatch countDownLatch;
 
     public PlayTask(PlayerInfo playerInfo, VideoInfo videoInfo, String baseUri) {
         this.playerInfo = playerInfo;
@@ -104,8 +103,6 @@ public class PlayTask implements Runnable, Callable<Boolean> {
         } catch (InterruptedException e) {
             System.out.println(e.getMessage());
         }
-        if (countDownLatch != null)
-            countDownLatch.countDown();
     }
 
     private boolean answerQuestion(Map.Entry<QuestionConfig, OptionInfo> question) {
@@ -161,10 +158,6 @@ public class PlayTask implements Runnable, Callable<Boolean> {
 
     public void setCheckCodeCallBack(CallBack<?> checkCodeCallBack) {
         this.checkCodeCallBack = checkCodeCallBack;
-    }
-
-    public void setCountDownLatch(CountDownLatch countDownLatch) {
-        this.countDownLatch = countDownLatch;
     }
 
     @Override
