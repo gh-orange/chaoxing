@@ -1,5 +1,5 @@
 # ChaoxingVideoTool
-A tool for view chaoxing video faster
+A tool to view chaoxing video faster
 
 It can auto playing video on background. The only you need to do is pressing your account, password and checkCode.
 

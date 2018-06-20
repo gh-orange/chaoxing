@@ -124,6 +124,7 @@ public class Application {
             } catch (Exception ignored) {
             }
             threadPool.shutdown();
+            scanner.close();
             System.out.println("Finished task count:" + futureList.size());
         } catch (RequestsException e) {
             System.out.println("Net connection error");
