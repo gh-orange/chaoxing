@@ -128,6 +128,7 @@ public class Application {
             System.out.println("Finished task count:" + futureList.size());
         } catch (RequestsException e) {
             System.out.println("Net connection error");
+        } catch (Exception ignored) {
         }
     }
 
