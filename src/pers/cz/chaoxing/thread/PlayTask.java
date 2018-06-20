@@ -10,9 +10,10 @@ import java.net.URLDecoder;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 
-public class PlayTask implements Runnable {
+public class PlayTask implements Runnable, Callable<Boolean> {
     private final PlayerInfo playerInfo;
     private final VideoInfo videoInfo;
     private final String baseUri;
@@ -164,5 +165,11 @@ public class PlayTask implements Runnable {
 
     public void setCountDownLatch(CountDownLatch countDownLatch) {
         this.countDownLatch = countDownLatch;
+    }
+
+    @Override
+    public Boolean call() {
+        run();
+        return true;
     }
 }

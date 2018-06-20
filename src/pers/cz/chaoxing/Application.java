@@ -11,10 +11,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.*;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 /**
  * ChaoxingVideoTool - a tool for view faster
@@ -75,20 +72,10 @@ public class Application {
             System.out.print("Using fast mode (may got WARNING, suggest you DO NOT USE) [y/n]:");
             boolean hasSleep = !scanner.next().equalsIgnoreCase("y");
             ExecutorService threadPool = Executors.newFixedThreadPool(threadCount);
-            List<PlayTask> threadList = new ArrayList<>();
+            List<Future<Boolean>> futureList = new ArrayList<>(threadCount);
 //            System.out.println("Press 'p' to pause, press 's' to stop, press any key to continue");
-            for (String classUri : CXUtil.getClasses(classesUri)) {
-                List<String> videos = CXUtil.getVideos(baseUri + classUri);
-                int videoCount = videos.size();
-                CountDownLatch countDownLatch = new CountDownLatch(0);
-                for (String videoUri : videos) {
-                    if (videoCount >= threadCount && countDownLatch.getCount() == 0) {
-                        countDownLatch = new CountDownLatch(threadCount);
-                        videoCount -= threadCount;
-                    } else if (videoCount != 0) {
-                        countDownLatch = new CountDownLatch(videoCount);
-                        videoCount = 0;
-                    }
+            for (String classUri : CXUtil.getClasses(classesUri))
+                for (String videoUri : CXUtil.getVideos(baseUri + classUri)) {
                     //parse uri to params
                     String[] videoUris = videoUri.split("\\?", 2);
                     Map<String, String> params = new HashMap<>();
@@ -115,22 +102,29 @@ public class Application {
                                     charArray[0] -= 32;
                                     playerInfo.getAttachments()[0].setType(String.valueOf(charArray));
                                     PlayTask playTask = new PlayTask(playerInfo, videoInfo, baseUri);
-                                    playTask.setCountDownLatch(countDownLatch);
                                     playTask.setCheckCodeCallBack(callBack);
                                     playTask.setHasSleep(hasSleep);
-                                    threadList.add(playTask);
-                                    threadPool.execute(playTask);
+                                    futureList.add(threadPool.submit((Callable<Boolean>) playTask));
                                 }
                             }
                             break;
                         } catch (CheckCodeException e) {
                             callBack.call(e.getUri(), e.getSession());
                         }
-                        countDownLatch.await();
+                    if (!futureList.isEmpty() && futureList.size() % threadCount == 0)
+                        try {
+                            for (Future<Boolean> future : futureList)
+                                future.get();
+                        } catch (Exception ignored) {
+                        }
                 }
+            try {
+                for (Future<Boolean> future : futureList)
+                    future.get();
+            } catch (Exception ignored) {
             }
             threadPool.shutdown();
-            System.out.println("Finished task count:" + threadList.size());
+            System.out.println("Finished task count:" + futureList.size());
         } catch (RequestsException e) {
             System.out.println("Net connection error");
         }
