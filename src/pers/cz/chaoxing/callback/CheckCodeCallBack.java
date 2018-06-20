@@ -46,7 +46,7 @@ public class CheckCodeCallBack implements CallBack<Boolean> {
     @Override
     public Boolean print(String str) {
         if (!lock.isLocked())
-            System.out.println(str);
+            System.out.println(Thread.currentThread().getName() + ": " + str);
         return true;
     }
 

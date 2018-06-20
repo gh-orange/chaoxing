@@ -11,6 +11,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.*;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -76,8 +77,18 @@ public class Application {
             ExecutorService threadPool = Executors.newFixedThreadPool(threadCount);
             List<PlayTask> threadList = new ArrayList<>();
 //            System.out.println("Press 'p' to pause, press 's' to stop, press any key to continue");
-            for (String classUri : CXUtil.getClasses(classesUri))
-                for (String videoUri : CXUtil.getVideos(baseUri + classUri)) {
+            for (String classUri : CXUtil.getClasses(classesUri)) {
+                List<String> videos = CXUtil.getVideos(baseUri + classUri);
+                int videoCount = videos.size();
+                CountDownLatch countDownLatch = new CountDownLatch(0);
+                for (String videoUri : videos) {
+                    if (videoCount >= threadCount && countDownLatch.getCount() == 0) {
+                        countDownLatch = new CountDownLatch(threadCount);
+                        videoCount -= threadCount;
+                    } else if (videoCount != 0) {
+                        countDownLatch = new CountDownLatch(videoCount);
+                        videoCount = 0;
+                    }
                     //parse uri to params
                     String[] videoUris = videoUri.split("\\?", 2);
                     Map<String, String> params = new HashMap<>();
@@ -104,6 +115,7 @@ public class Application {
                                     charArray[0] -= 32;
                                     playerInfo.getAttachments()[0].setType(String.valueOf(charArray));
                                     PlayTask playTask = new PlayTask(playerInfo, videoInfo, baseUri);
+                                    playTask.setCountDownLatch(countDownLatch);
                                     playTask.setCheckCodeCallBack(callBack);
                                     playTask.setHasSleep(hasSleep);
                                     threadList.add(playTask);
@@ -114,15 +126,13 @@ public class Application {
                         } catch (CheckCodeException e) {
                             callBack.call(e.getUri(), e.getSession());
                         }
-                    threadPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+                        countDownLatch.await();
                 }
-            threadPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+            }
             threadPool.shutdown();
             System.out.println("Finished task count:" + threadList.size());
         } catch (RequestsException e) {
             System.out.println("Net connection error");
-        } catch (InterruptedException e) {
-            System.out.println("ThreadPool error");
         }
     }
 

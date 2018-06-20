@@ -10,6 +10,7 @@ import java.net.URLDecoder;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 
 public class PlayTask implements Runnable {
     private final PlayerInfo playerInfo;
@@ -21,6 +22,7 @@ public class PlayTask implements Runnable {
     private boolean stop;
     private boolean hasSleep;
     private CallBack<?> checkCodeCallBack;
+    private CountDownLatch countDownLatch;
 
     public PlayTask(PlayerInfo playerInfo, VideoInfo videoInfo, String baseUri) {
         this.playerInfo = playerInfo;
@@ -101,6 +103,8 @@ public class PlayTask implements Runnable {
         } catch (InterruptedException e) {
             System.out.println(e.getMessage());
         }
+        if (countDownLatch != null)
+            countDownLatch.countDown();
     }
 
     private boolean answerQuestion(Map.Entry<QuestionConfig, OptionInfo> question) {
@@ -156,5 +160,9 @@ public class PlayTask implements Runnable {
 
     public void setCheckCodeCallBack(CallBack<?> checkCodeCallBack) {
         this.checkCodeCallBack = checkCodeCallBack;
+    }
+
+    public void setCountDownLatch(CountDownLatch countDownLatch) {
+        this.countDownLatch = countDownLatch;
     }
 }
