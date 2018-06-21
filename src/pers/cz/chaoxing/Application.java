@@ -112,12 +112,6 @@ public class Application {
                         } catch (CheckCodeException e) {
                             callBack.call(e.getUri(), e.getSession());
                         }
-//                    if (!futureList.isEmpty() && futureList.size() % threadCount == 0)
-//                        try {
-//                            for (Future<Boolean> future : futureList)
-//                                future.get();
-//                        } catch (Exception ignored) {
-//                        }
                 }
             try {
                 for (Future<Boolean> future : futureList)
