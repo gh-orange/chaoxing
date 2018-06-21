@@ -4,6 +4,7 @@ import net.dongliu.requests.exception.RequestsException;
 import pers.cz.chaoxing.callback.CheckCodeCallBack;
 import pers.cz.chaoxing.common.*;
 import pers.cz.chaoxing.exception.CheckCodeException;
+import pers.cz.chaoxing.thread.LimitedBlockingQueue;
 import pers.cz.chaoxing.thread.PlayTask;
 import pers.cz.chaoxing.util.CXUtil;
 
@@ -71,7 +72,7 @@ public class Application {
             int threadCount = scanner.nextInt();
             System.out.print("Using fast mode (may got WARNING, suggest you DO NOT USE) [y/n]:");
             boolean hasSleep = !scanner.next().equalsIgnoreCase("y");
-            ExecutorService threadPool = Executors.newFixedThreadPool(threadCount);
+            ExecutorService threadPool = new ThreadPoolExecutor(threadCount, threadCount, 0L, TimeUnit.MILLISECONDS, new LimitedBlockingQueue<>(threadCount));
             List<Future<Boolean>> futureList = new ArrayList<>(threadCount);
 //            System.out.println("Press 'p' to pause, press 's' to stop, press any key to continue");
             for (String classUri : CXUtil.getClasses(classesUri))
@@ -97,7 +98,6 @@ public class Application {
                                 }
                                 System.out.println("Video did not pass:" + videoName);
                                 if (CXUtil.startRecord(baseUri, params)) {
-                                    System.out.println("Add playTask to ThreadPool:" + videoName);
                                     char[] charArray = playerInfo.getAttachments()[0].getType().toCharArray();
                                     charArray[0] -= 32;
                                     playerInfo.getAttachments()[0].setType(String.valueOf(charArray));
@@ -105,18 +105,19 @@ public class Application {
                                     playTask.setCheckCodeCallBack(callBack);
                                     playTask.setHasSleep(hasSleep);
                                     futureList.add(threadPool.submit((Callable<Boolean>) playTask));
+                                    System.out.println("Added playTask to ThreadPool:" + videoName);
                                 }
                             }
                             break;
                         } catch (CheckCodeException e) {
                             callBack.call(e.getUri(), e.getSession());
                         }
-                    if (!futureList.isEmpty() && futureList.size() % threadCount == 0)
-                        try {
-                            for (Future<Boolean> future : futureList)
-                                future.get();
-                        } catch (Exception ignored) {
-                        }
+//                    if (!futureList.isEmpty() && futureList.size() % threadCount == 0)
+//                        try {
+//                            for (Future<Boolean> future : futureList)
+//                                future.get();
+//                        } catch (Exception ignored) {
+//                        }
                 }
             try {
                 for (Future<Boolean> future : futureList)
