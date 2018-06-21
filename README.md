@@ -1,4 +1,6 @@
 # ChaoxingVideoTool
+[![Build Status](https://travis-ci.org/cz111000/chaoxing.svg?branch=master)](https://travis-ci.org/cz111000/chaoxing)
+
 A tool to view chaoxing video faster
 
 It can auto playing video on background. The only you need to do is pressing your account, password and checkCode.
