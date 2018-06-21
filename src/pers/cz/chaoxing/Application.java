@@ -72,7 +72,7 @@ public class Application {
             int threadCount = scanner.nextInt();
             System.out.print("Using fast mode (may got WARNING, suggest you DO NOT USE) [y/n]:");
             boolean hasSleep = !scanner.next().equalsIgnoreCase("y");
-            ExecutorService threadPool = new ThreadPoolExecutor(threadCount, threadCount, 0L, TimeUnit.MILLISECONDS, new LimitedBlockingQueue<>(threadCount));
+            ExecutorService threadPool = new ThreadPoolExecutor(threadCount, threadCount, 0L, TimeUnit.MILLISECONDS, new LimitedBlockingQueue<>(1));
             List<Future<Boolean>> futureList = new ArrayList<>(threadCount);
 //            System.out.println("Press 'p' to pause, press 's' to stop, press any key to continue");
             for (String classUri : CXUtil.getClasses(classesUri))
