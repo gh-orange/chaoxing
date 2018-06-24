@@ -1,32 +1,36 @@
 package pers.cz.chaoxing.util;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONException;
-import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.*;
 import net.dongliu.requests.*;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import pers.cz.chaoxing.common.PlayerInfo;
-import pers.cz.chaoxing.common.QuestionInfo;
-import pers.cz.chaoxing.common.PlayerData;
-import pers.cz.chaoxing.common.VideoInfo;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+import pers.cz.chaoxing.common.*;
 import pers.cz.chaoxing.exception.CheckCodeException;
+import pers.cz.chaoxing.exception.WrongAccountException;
 
-import java.awt.*;
-import java.io.File;
+import java.lang.reflect.Type;
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.List;
-import java.util.concurrent.*;
 
 public class CXUtil {
 
+    private static final Type taskInfoType = new TypeReference<TaskInfo<TaskData>>() {
+    }.getType();
+
+    private static final Type playerInfoType = new TypeReference<TaskInfo<PlayerData>>() {
+    }.getType();
+
+    private static final Type homeworkInfoType = new TypeReference<TaskInfo<HomeworkData>>() {
+    }.getType();
+
     private static Session session = Requests.session();
 
-    public static boolean login(String username, String password, String checkCode) {
+    public static boolean login(String username, String password, String checkCode) throws WrongAccountException {
         String indexUri = session.get("http://dlnu.fy.chaoxing.com/topjs?index=1").send().readToText();
         String beginStr = "location.href = \\\"";
         String endStr = "\\\"";
@@ -46,14 +50,24 @@ public class CXUtil {
         postBody.put("uname", username);
         postBody.put("password", password);
         postBody.put("numcode", checkCode);
-        RawResponse response = session.post("http://passport2.chaoxing.com/login?refer=http://i.mooc.chaoxing.com/space/index.shtml").body(postBody).send();
-        return !response.readToText().contains("用户登录");
+        String responseStr = session.post("http://passport2.chaoxing.com/login?refer=http://i.mooc.chaoxing.com/space/index.shtml").body(postBody).send().readToText();
+        if (responseStr.contains("密码错误"))
+            throw new WrongAccountException();
+        return !responseStr.contains("用户登录");
     }
 
     public static String getClassesUri() throws CheckCodeException {
-        Document document = Jsoup.parse(session.get("http://i.mooc.chaoxing.com/space/index.shtml").send().readToText());
-        String src = document.select("div.mainright iframe").attr("src");
-        RawResponse response = session.get(src).maxRedirectCount(1).send();
+        RawResponse response = session.get("http://i.mooc.chaoxing.com/space/index.shtml").followRedirect(false).send();
+        if (response.getStatusCode() == StatusCodes.FOUND)
+            throw new CheckCodeException(response.getHeader("location"), session);
+        String src = Jsoup.parse(response.readToText()).select("div.mainright iframe").attr("src");
+        for (int i = 0; i < 2; i++) {
+            response = session.get(src).followRedirect(false).send();
+            if (response.getStatusCode() == StatusCodes.FOUND)
+                src = response.getHeader("location");
+            else
+                break;
+        }
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(response.getHeader("location"), session);
         return response.getURL();
@@ -65,9 +79,19 @@ public class CXUtil {
         return document.select("div.httpsClass.Mconright a").eachAttr("href");
     }
 
-    public static List<String> getVideos(String uri) {
+    public static List<String> getTasks(String uri) {
         Document document = Jsoup.parse(session.get(uri).send().readToText());
-        return document.select("span.articlename a").eachAttr("href");
+        /*
+        return 'success'
+         */
+        String logUri = document.select("script[type=text/javascript]").last().attr("src");
+        if (!logUri.isEmpty())
+            session.get(logUri).send();
+        Elements elements = new Elements();
+        for (Element element : document.select("h3.clearfix"))
+            if (!element.select("em.orange").text().isEmpty())
+                elements.addAll(element.select("span.articlename a"));
+        return elements.eachAttr("href");
     }
 
     public static String getCardUriModel(String baseUri, String uri, Map<String, String> params) throws CheckCodeException {
@@ -77,31 +101,58 @@ public class CXUtil {
         String cardUri = response.readToText();
         String beginStr = "document.getElementById(\"iframe\").src=\"";
         String endStr = "\";";
-        int beginIndex = cardUri.indexOf(beginStr, cardUri.indexOf("getElementById(\"mainid\")")) + beginStr.length();
+        int beginIndex = cardUri.indexOf(beginStr) + beginStr.length();
         return cardUri.substring(beginIndex, cardUri.indexOf(endStr, beginIndex)).replaceAll("[\"+]", "");
     }
 
-    public static PlayerInfo getPlayerInfo(String baseUri, String cardUri, Map<String, String> params) throws CheckCodeException {
+    public static <T extends TaskData> TaskInfo<T> getTaskInfo(String baseUri, String cardUri, Map<String, String> params, InfoType infoType) throws CheckCodeException {
+        String responseStr = session.post(baseUri + "/mycourse/studentstudyAjax").body(params).send().readToText();
+        String beginStr = "utEnc=\"";
+        String endStr = "\";";
+        int beginIndex = responseStr.indexOf(beginStr) + beginStr.length();
+        String utEnc = responseStr.substring(beginIndex, responseStr.indexOf(endStr, beginIndex));
+        params.put("num", String.valueOf(infoType.ordinal()));
         for (Map.Entry<String, String> param : params.entrySet())
             cardUri = cardUri.replaceAll("(?i)=" + param.getKey(), "=" + param.getValue());
         RawResponse response = session.get(baseUri + cardUri).followRedirect(false).send();
+//        session.get(baseUri + "/mycourse/studentstudycourselist").params(params).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(response.getHeader("location"), session);
-        String responseStr = response.readToText();
-        String beginStr = "mArg = ";
-        String endStr = ";";
-        int beginIndex = responseStr.indexOf(beginStr, responseStr.indexOf("try{")) + beginStr.length();
+        responseStr = response.readToText();
+        beginStr = "mArg = ";
+        endStr = ";";
+        beginIndex = responseStr.indexOf(beginStr, responseStr.indexOf("try{")) + beginStr.length();
         try {
-            return JSON.parseObject(responseStr.substring(beginIndex, responseStr.indexOf(endStr, beginIndex)), PlayerInfo.class);
+            switch (infoType) {
+                case Video:
+                    return JSON.parseObject(responseStr.substring(beginIndex, responseStr.indexOf(endStr, beginIndex)), playerInfoType);
+                case Homework:
+                    TaskInfo<HomeworkData> taskInfo = JSON.parseObject(responseStr.substring(beginIndex, responseStr.indexOf(endStr, beginIndex)), homeworkInfoType);
+                    taskInfo.getAttachments()[0].setUtEnc(utEnc);
+                    return (TaskInfo<T>) taskInfo;
+                default:
+                    return JSON.parseObject(responseStr.substring(beginIndex, responseStr.indexOf(endStr, beginIndex)), taskInfoType);
+            }
         } catch (JSONException ignored) {
-            /*
-            none video
-             */
-            PlayerInfo playerInfo = new PlayerInfo();
-            PlayerData playerData = new PlayerData();
-            playerData.setPassed(true);
-            playerInfo.setAttachments(new PlayerData[]{playerData});
-            return playerInfo;
+            TaskInfo<T> taskInfo = new TaskInfo<>();
+            switch (infoType) {
+                case Video:
+                    /*
+                    none video
+                     */
+                    PlayerData playerData = new PlayerData();
+                    playerData.setPassed(true);
+                    taskInfo.setAttachments((T[]) new PlayerData[]{playerData});
+                    break;
+                case Homework:
+                    /*
+                    none homework
+                     */
+                    HomeworkData homeworkData = new HomeworkData();
+                    taskInfo.setAttachments((T[]) new HomeworkData[]{homeworkData});
+                    break;
+            }
+            return taskInfo;
         }
     }
 
@@ -113,63 +164,75 @@ public class CXUtil {
     }
 
     /**
-     * call each intervalTime since video playing
+     * call since video loaded
      *
-     * @param playerInfo
-     * @param videoInfo
-     * @param playSecond
+     * @param baseUri
+     * @param params
      * @return
      */
-    public static boolean onPlayProgress(PlayerInfo playerInfo, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
-        return sendLog(playerInfo, videoInfo, playSecond, 0);
+    public static boolean startRecord(String baseUri, Map<String, String> params) {
+        params.put("nodeid", params.get("chapterId"));
+        return session.get(baseUri + "/edit/validatejobcount").params(params).send().readToText().contains("true");
     }
 
     /**
      * call since video loaded first
      *
-     * @param playerInfo
+     * @param taskInfo
      * @param videoInfo
      * @return
      */
-    public static boolean onStart(PlayerInfo playerInfo, VideoInfo videoInfo) throws CheckCodeException {
-        return sendLog(playerInfo, videoInfo, (int) (playerInfo.getAttachments()[0].getHeadOffset() / 1000), 3);
+    public static boolean onStart(TaskInfo<PlayerData> taskInfo, VideoInfo videoInfo) throws CheckCodeException {
+        return sendLog(taskInfo, videoInfo, (int) (taskInfo.getAttachments()[0].getHeadOffset() / 1000), 3);
     }
 
     /**
      * call since video finished
      *
-     * @param playerInfo
+     * @param taskInfo
      * @param videoInfo
      * @return
      */
-    public static boolean onEnd(PlayerInfo playerInfo, VideoInfo videoInfo) throws CheckCodeException {
-        return sendLog(playerInfo, videoInfo, videoInfo.getDuration(), 4);
+    public static boolean onEnd(TaskInfo taskInfo, VideoInfo videoInfo) throws CheckCodeException {
+        return sendLog(taskInfo, videoInfo, videoInfo.getDuration(), 4);
     }
 
     /**
      * call since video clicked to play
      *
-     * @param playerInfo
+     * @param taskInfo
      * @param videoInfo
      * @param playSecond
      * @return
      */
-    public static boolean onPlay(PlayerInfo playerInfo, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
-        return sendLog(playerInfo, videoInfo, playSecond, 3);
+    public static boolean onPlay(TaskInfo taskInfo, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
+        return sendLog(taskInfo, videoInfo, playSecond, 3);
     }
 
     /**
      * call since video clicked to pause
      *
-     * @param playerInfo
+     * @param taskInfo
      * @param videoInfo
      * @param playSecond
      * @return
      */
-    public static boolean onPause(PlayerInfo playerInfo, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
-        if (playerInfo.getDefaults().getChapterId() != null && !playerInfo.getDefaults().getChapterId().isEmpty())
-            return sendLog(playerInfo, videoInfo, playSecond, 2);
+    public static boolean onPause(TaskInfo taskInfo, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
+        if (taskInfo.getDefaults().getChapterId() != null && !taskInfo.getDefaults().getChapterId().isEmpty())
+            return sendLog(taskInfo, videoInfo, playSecond, 2);
         return false;
+    }
+
+    /**
+     * call each intervalTime since video playing
+     *
+     * @param taskInfo
+     * @param videoInfo
+     * @param playSecond
+     * @return
+     */
+    public static boolean onPlayProgress(TaskInfo taskInfo, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
+        return sendLog(taskInfo, videoInfo, playSecond, 0);
     }
 
     /**
@@ -211,11 +274,11 @@ public class CXUtil {
      * return;
      * }
      **/
-    private static boolean sendLog(PlayerInfo playerInfo, VideoInfo videoInfo, int playSecond, int dragStatus) throws CheckCodeException {
+    private static boolean sendLog(TaskInfo taskInfo, VideoInfo videoInfo, int playSecond, int dragStatus) throws CheckCodeException {
         /*
         don't send when review mode
         */
-//        if (playerInfo.getDefaults().isFiled() || playerInfo.getDefaults().getState() == 1)
+//        if (taskInfo.getDefaults().isFiled() || taskInfo.getDefaults().getState() == 1)
 //            return false;
         Map<String, String> params = new HashMap<>();
         MessageDigest md5;
@@ -224,7 +287,7 @@ public class CXUtil {
         } catch (NoSuchAlgorithmException ignored) {
             return false;
         }
-        String chapterId = playerInfo.getDefaults().getChapterId();
+        String chapterId = taskInfo.getDefaults().getChapterId();
         if (chapterId != null && !chapterId.isEmpty()) {
             int state;
             switch (dragStatus) {
@@ -239,13 +302,13 @@ public class CXUtil {
                     state = 0;
                     break;
             }
-            md5.update(("[" + playerInfo.getDefaults().getChapterId() + "]" + "[" + playerInfo.getDefaults().getClazzId() + "]" + "[" + videoInfo.getDuration() + "]" + "[0]" + "[" + videoInfo.getObjectid() + "]" + "[" + state + "]" + "[535e933c498001]").getBytes());
+            md5.update(("[" + taskInfo.getDefaults().getChapterId() + "]" + "[" + taskInfo.getDefaults().getClazzId() + "]" + "[" + videoInfo.getDuration() + "]" + "[0]" + "[" + videoInfo.getObjectid() + "]" + "[" + state + "]" + "[535e933c498001]").getBytes());
             StringBuilder md5Str = new StringBuilder(new BigInteger(1, md5.digest()).toString(16));
             while (md5Str.length() < 32)
                 md5Str.insert(0, "0");
-            params.put("u", playerInfo.getDefaults().getUserid());
-            params.put("s", playerInfo.getDefaults().getClazzId());
-            params.put("c", playerInfo.getDefaults().getChapterId());
+            params.put("u", taskInfo.getDefaults().getUserid());
+            params.put("s", taskInfo.getDefaults().getClazzId());
+            params.put("c", taskInfo.getDefaults().getChapterId());
             params.put("o", videoInfo.getObjectid());
             params.put("st", String.valueOf(state));
             params.put("m", String.valueOf(0));
@@ -254,31 +317,31 @@ public class CXUtil {
             session.get("http://data.xxt.aichaoxing.com/analysis/datalog").params(params).send();
             params.clear();
         }
-        if (playerInfo.getAttachments().length == 0)
+        if (taskInfo.getAttachments().length == 0)
             return false;
         String clipTime = videoInfo.getStartTime() + "_" + (videoInfo.getEndTime() != 0 ? videoInfo.getEndTime() : videoInfo.getDuration());
-        params.put("clazzId", playerInfo.getDefaults().getClazzId());
+        params.put("clazzId", taskInfo.getDefaults().getClazzId());
         params.put("objectId", videoInfo.getObjectid());
-        params.put("userid", playerInfo.getDefaults().getUserid());
-        params.put("jobid", playerInfo.getAttachments()[0].getJobid());
-        params.put("otherInfo", playerInfo.getAttachments()[0].getOtherInfo());
+        params.put("userid", taskInfo.getDefaults().getUserid());
+        params.put("jobid", taskInfo.getAttachments()[0].getJobid());
+        params.put("otherInfo", taskInfo.getAttachments()[0].getOtherInfo());
         params.put("playingTime", String.valueOf(playSecond));
         params.put("isdrag", String.valueOf(dragStatus));
         params.put("duration", String.valueOf(videoInfo.getDuration()));
         params.put("clipTime", clipTime);
-        params.put("dtype", playerInfo.getAttachments()[0].getType());
+        params.put("dtype", taskInfo.getAttachments()[0].getType());
         params.put("rt", String.valueOf(videoInfo.getRt() != 0.0f ? videoInfo.getRt() : 0.9f));
         params.put("view", "pc");
-        md5.update(("[" + playerInfo.getDefaults().getClazzId() + "]" + "[" + playerInfo.getDefaults().getUserid() + "]" + "[" + playerInfo.getAttachments()[0].getJobid() + "]" + "[" + videoInfo.getObjectid() + "]" + "[" + playSecond * 1000 + "]" + "[d_yHJ!$pdA~5]" + "[" + videoInfo.getDuration() * 1000 + "]" + "[" + clipTime + "]").getBytes());
+        md5.update(("[" + taskInfo.getDefaults().getClazzId() + "]" + "[" + taskInfo.getDefaults().getUserid() + "]" + "[" + taskInfo.getAttachments()[0].getJobid() + "]" + "[" + videoInfo.getObjectid() + "]" + "[" + playSecond * 1000 + "]" + "[d_yHJ!$pdA~5]" + "[" + videoInfo.getDuration() * 1000 + "]" + "[" + clipTime + "]").getBytes());
         StringBuilder md5Str = new StringBuilder(new BigInteger(1, md5.digest()).toString(16));
         while (md5Str.length() < 32)
             md5Str.insert(0, "0");
         params.put("enc", md5Str.toString());
         RawResponse response;
         if (videoInfo.getDtoken() != null && !videoInfo.getDtoken().isEmpty())
-            response = session.get(playerInfo.getDefaults().getReportUrl() + "/" + videoInfo.getDtoken()).params(params).followRedirect(false).send();
+            response = session.get(taskInfo.getDefaults().getReportUrl() + "/" + videoInfo.getDtoken()).params(params).followRedirect(false).send();
         else
-            response = session.get(playerInfo.getDefaults().getReportUrl()).params(params).followRedirect(false).send();
+            response = session.get(taskInfo.getDefaults().getReportUrl()).params(params).followRedirect(false).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(response.getHeader("location"), session);
         return JSONObject.parseObject(response.readToText()).getBoolean("isPassed");
@@ -291,17 +354,17 @@ public class CXUtil {
      * @param mid
      * @return
      */
-    public static List<QuestionInfo> getQuestions(String initDataUrl, String mid) throws CheckCodeException {
+    public static List<QuizInfo> getVideoQuiz(String initDataUrl, String mid) throws CheckCodeException {
         HashMap<String, String> params = new HashMap<>();
         params.put("mid", mid);
         params.put("start", "undefined");
         RawResponse response = session.get(initDataUrl).params(params).followRedirect(false).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(response.getHeader("location"), session);
-        return JSONArray.parseArray(response.readToText(), QuestionInfo.class);
+        return JSONArray.parseArray(response.readToText(), QuizInfo.class);
     }
 
-    public static boolean answerQuestion(String baseUri, String validationUrl, String resourceId, String answer) throws CheckCodeException {
+    public static boolean answerVideoQuiz(String baseUri, String validationUrl, String resourceId, String answer) throws CheckCodeException {
         HashMap<String, String> params = new HashMap<>();
         params.put("resourceid", resourceId);
         params.put("answer", "'" + answer + "'");
@@ -312,16 +375,29 @@ public class CXUtil {
         return jsonObject.getString("answer").equals(answer) && jsonObject.getBoolean("isRight");
     }
 
-    /**
-     * call since video loaded
-     *
-     * @param baseUri
-     * @param params
-     * @return
-     */
-    public static boolean startRecord(String baseUri, Map<String, String> params) {
-        params.put("nodeid", params.get("chapterId"));
-        return session.get(baseUri + "/edit/validatejobcount").params(params).send().readToText().contains("true");
+    public static List<QuizInfo> getExamQuiz(String baseUri, TaskInfo<HomeworkData> taskInfo) throws CheckCodeException {
+        HashMap<String, String> params = new HashMap<>();
+        params.put("api", "1");
+        params.put("needRedirect", "true");
+        params.put("workId", taskInfo.getAttachments()[0].getProperty().getWorkid());
+        params.put("jobid", taskInfo.getAttachments()[0].getJobid());
+        params.put("knowledgeid", taskInfo.getDefaults().getKnowledgeid());
+        /*
+        teacher or student
+         */
+        params.put("ut", "s");
+        params.put("clazzId", taskInfo.getDefaults().getClazzId());
+        params.put("type", taskInfo.getAttachments()[0].getProperty().getWorktype().equals("workB") ? "b" : "");
+        params.put("enc", taskInfo.getAttachments()[0].getEnc());
+        params.put("utenc", taskInfo.getAttachments()[0].getUtEnc());
+        Elements elements = Jsoup.parse(session.get(baseUri + "/api/work").params(params).send().readToText()).select("div.CeYan");
+        elements.select("div.ZyTop.h3.span").text().contains("待做");
+        Elements form = elements.select("form#form1");
+        Elements questions = form.select("div.TiMu");
+        for (Element question : questions) {
+            System.out.println(question.html());
+        }
+        return new ArrayList<>();
     }
 
     public static void saveCheckCode(String path) {

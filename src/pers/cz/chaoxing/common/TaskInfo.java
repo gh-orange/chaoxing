@@ -1,23 +1,23 @@
 package pers.cz.chaoxing.common;
 
-public class PlayerInfo {
-    private PlayerData[] attachments;
-    private PlayerConfig defaults;
+public class TaskInfo<T extends TaskData> {
+    private T[] attachments;
+    private TaskConfig defaults;
     private boolean control;
 
-    public PlayerData[] getAttachments() {
+    public T[] getAttachments() {
         return attachments;
     }
 
-    public void setAttachments(PlayerData[] attachments) {
+    public void setAttachments(T[] attachments) {
         this.attachments = attachments;
     }
 
-    public PlayerConfig getDefaults() {
+    public TaskConfig getDefaults() {
         return defaults;
     }
 
-    public void setDefaults(PlayerConfig defaults) {
+    public void setDefaults(TaskConfig defaults) {
         this.defaults = defaults;
     }
 

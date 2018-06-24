@@ -1,15 +1,10 @@
 package pers.cz.chaoxing.common;
 
-public class PlayerData {
+public class PlayerData extends TaskData<PlayerDataProperty> {
     private long headOffset;
-    private String jobid;
-    private String otherInfo;
     private boolean isPassed;
-    private PlayerDataProperty property;
     private long playTime;
-    private String mid;
     private boolean job;
-    private String type;
     private String objectId;
 
     public long getHeadOffset() {
@@ -20,22 +15,6 @@ public class PlayerData {
         this.headOffset = headOffset;
     }
 
-    public String getJobid() {
-        return jobid;
-    }
-
-    public void setJobid(String jobid) {
-        this.jobid = jobid;
-    }
-
-    public String getOtherInfo() {
-        return otherInfo;
-    }
-
-    public void setOtherInfo(String otherInfo) {
-        this.otherInfo = otherInfo;
-    }
-
     public boolean isPassed() {
         return isPassed;
     }
@@ -44,36 +23,12 @@ public class PlayerData {
         isPassed = passed;
     }
 
-    public PlayerDataProperty getProperty() {
-        return property;
-    }
-
-    public void setProperty(PlayerDataProperty property) {
-        this.property = property;
-    }
-
-    public String getMid() {
-        return mid;
-    }
-
-    public void setMid(String mid) {
-        this.mid = mid;
-    }
-
     public boolean isJob() {
         return job;
     }
 
     public void setJob(boolean job) {
         this.job = job;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
     }
 
     public String getObjectId() {

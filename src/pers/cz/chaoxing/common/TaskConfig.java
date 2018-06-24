@@ -1,6 +1,6 @@
 package pers.cz.chaoxing.common;
 
-public class PlayerConfig {
+public class TaskConfig {
     private String fid;
     private boolean isFiled;
     private String reportUrl;
