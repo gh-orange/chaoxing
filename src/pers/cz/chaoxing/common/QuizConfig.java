@@ -1,6 +1,6 @@
 package pers.cz.chaoxing.common;
 
-public class QuestionConfig {
+public class QuizConfig {
     private String memberinfo;
     private String resourceId;
     private boolean answered;
