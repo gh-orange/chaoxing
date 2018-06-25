@@ -5,6 +5,7 @@ import net.dongliu.requests.*;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.jsoup.nodes.FormElement;
 import org.jsoup.select.Elements;
 import pers.cz.chaoxing.common.*;
 import pers.cz.chaoxing.exception.CheckCodeException;
@@ -99,18 +100,18 @@ public class CXUtil {
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(response.getHeader("location"), session);
         String cardUri = response.readToText();
-        String beginStr = "document.getElementById(\"iframe\").src=\"";
+        String beginStr = "utEnc=\"";
         String endStr = "\";";
         int beginIndex = cardUri.indexOf(beginStr) + beginStr.length();
+        params.put("utenc", cardUri.substring(beginIndex, cardUri.indexOf(endStr, beginIndex)));
+        beginStr = "document.getElementById(\"iframe\").src=\"";
+        endStr = "\";";
+        beginIndex = cardUri.indexOf(beginStr) + beginStr.length();
         return cardUri.substring(beginIndex, cardUri.indexOf(endStr, beginIndex)).replaceAll("[\"+]", "");
     }
 
     public static <T extends TaskData> TaskInfo<T> getTaskInfo(String baseUri, String cardUri, Map<String, String> params, InfoType infoType) throws CheckCodeException {
-        String responseStr = session.post(baseUri + "/mycourse/studentstudyAjax").body(params).send().readToText();
-        String beginStr = "utEnc=\"";
-        String endStr = "\";";
-        int beginIndex = responseStr.indexOf(beginStr) + beginStr.length();
-        String utEnc = responseStr.substring(beginIndex, responseStr.indexOf(endStr, beginIndex));
+//        session.post(baseUri + "/mycourse/studentstudyAjax").body(params).send();
         params.put("num", String.valueOf(infoType.ordinal()));
         for (Map.Entry<String, String> param : params.entrySet())
             cardUri = cardUri.replaceAll("(?i)=" + param.getKey(), "=" + param.getValue());
@@ -118,17 +119,17 @@ public class CXUtil {
 //        session.get(baseUri + "/mycourse/studentstudycourselist").params(params).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(response.getHeader("location"), session);
-        responseStr = response.readToText();
-        beginStr = "mArg = ";
-        endStr = ";";
-        beginIndex = responseStr.indexOf(beginStr, responseStr.indexOf("try{")) + beginStr.length();
+        String responseStr = response.readToText();
+        String beginStr = "mArg = ";
+        String endStr = ";";
+        int beginIndex = responseStr.indexOf(beginStr, responseStr.indexOf("try{")) + beginStr.length();
         try {
             switch (infoType) {
                 case Video:
                     return JSON.parseObject(responseStr.substring(beginIndex, responseStr.indexOf(endStr, beginIndex)), playerInfoType);
                 case Homework:
                     TaskInfo<HomeworkData> taskInfo = JSON.parseObject(responseStr.substring(beginIndex, responseStr.indexOf(endStr, beginIndex)), homeworkInfoType);
-                    taskInfo.getAttachments()[0].setUtEnc(utEnc);
+                    taskInfo.getAttachments()[0].setUtEnc(params.get("utenc"));
                     return (TaskInfo<T>) taskInfo;
                 default:
                     return JSON.parseObject(responseStr.substring(beginIndex, responseStr.indexOf(endStr, beginIndex)), taskInfoType);
@@ -149,6 +150,7 @@ public class CXUtil {
                     none homework
                      */
                     HomeworkData homeworkData = new HomeworkData();
+                    homeworkData.setUtEnc(params.get("utenc"));
                     taskInfo.setAttachments((T[]) new HomeworkData[]{homeworkData});
                     break;
             }
@@ -386,18 +388,38 @@ public class CXUtil {
         teacher or student
          */
         params.put("ut", "s");
+        params.put("courseid", taskInfo.getDefaults().getCourseid());
         params.put("clazzId", taskInfo.getDefaults().getClazzId());
         params.put("type", taskInfo.getAttachments()[0].getProperty().getWorktype().equals("workB") ? "b" : "");
         params.put("enc", taskInfo.getAttachments()[0].getEnc());
         params.put("utenc", taskInfo.getAttachments()[0].getUtEnc());
-        Elements elements = Jsoup.parse(session.get(baseUri + "/api/work").params(params).send().readToText()).select("div.CeYan");
-        elements.select("div.ZyTop.h3.span").text().contains("待做");
-        Elements form = elements.select("form#form1");
+        String responseStr = session.get(baseUri + "/api/work").params(params).send().readToText();
+        Elements elements = Jsoup.parse(responseStr).select("div.CeYan");
+        boolean isAnswered = !elements.select("div.ZyTop h3 span").text().contains("待做");
+        FormElement form = elements.select("form#form1").forms().get(0);
+        form.setBaseUri(baseUri);
         Elements questions = form.select("div.TiMu");
-        for (Element question : questions) {
-            System.out.println(question.html());
+        List<QuizInfo> quizInfoList = new ArrayList<>();
+        QuizInfo quizInfo = new QuizInfo();
+        quizInfoList.add(quizInfo);
+        quizInfo.setDatas(new QuizConfig[questions.size()]);
+        for (int i = 0; i < questions.size(); i++) {
+            quizInfo.getDatas()[i] = new QuizConfig();
+            quizInfo.getDatas()[i].setValidationUrl(form.absUrl("action"));
+            quizInfo.getDatas()[i].setAnswered(isAnswered);
+            quizInfo.getDatas()[i].setDescription(questions.get(i).select("div.Zy_TItle div.clearfix").first().text());
+            Element input = questions.get(i).select("input[id~=answertype]").first();
+            quizInfo.getDatas()[i].setResourceId(input.id());
+            quizInfo.getDatas()[i].setQuestionType(input.val());
+            Elements lis = questions.get(i).getElementsByTag("ul").first().getElementsByTag("li");
+            quizInfo.getDatas()[i].setOptions(new OptionInfo[lis.size()]);
+            for (int j = 0; j < lis.size(); j++) {
+                quizInfo.getDatas()[i].getOptions()[j] = new OptionInfo();
+                quizInfo.getDatas()[i].getOptions()[j].setDescription(lis.get(j).select("label input").val());
+                quizInfo.getDatas()[i].getOptions()[j].setDescription(lis.get(j).select("a").text());
+            }
         }
-        return new ArrayList<>();
+        return quizInfoList;
     }
 
     public static void saveCheckCode(String path) {
