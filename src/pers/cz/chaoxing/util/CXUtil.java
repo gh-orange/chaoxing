@@ -409,14 +409,19 @@ public class CXUtil {
             quizInfo.getDatas()[i].setAnswered(isAnswered);
             quizInfo.getDatas()[i].setDescription(questions.get(i).select("div.Zy_TItle div.clearfix").first().text());
             Element input = questions.get(i).select("input[id~=answertype]").first();
+            Element previous = input.previousElementSibling();
+            if (previous.tagName().equals("input"))
+                quizInfo.getDatas()[i].setMemberinfo(previous.id());
             quizInfo.getDatas()[i].setResourceId(input.id());
             quizInfo.getDatas()[i].setQuestionType(input.val());
             Elements lis = questions.get(i).getElementsByTag("ul").first().getElementsByTag("li");
             quizInfo.getDatas()[i].setOptions(new OptionInfo[lis.size()]);
             for (int j = 0; j < lis.size(); j++) {
                 quizInfo.getDatas()[i].getOptions()[j] = new OptionInfo();
-                quizInfo.getDatas()[i].getOptions()[j].setDescription(lis.get(j).select("label input").val());
+                quizInfo.getDatas()[i].getOptions()[j].setName(lis.get(j).select("label input").val());
                 quizInfo.getDatas()[i].getOptions()[j].setDescription(lis.get(j).select("a").text());
+                if (quizInfo.getDatas()[i].getOptions()[j].getDescription().isEmpty())
+                    quizInfo.getDatas()[i].getOptions()[j].setDescription(quizInfo.getDatas()[i].getOptions()[j].getName());
             }
         }
         return quizInfoList;
