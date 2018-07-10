@@ -1,7 +1,12 @@
 package pers.cz.chaoxing.thread;
 
 import pers.cz.chaoxing.callback.CallBack;
-import pers.cz.chaoxing.common.*;
+import pers.cz.chaoxing.common.quiz.OptionInfo;
+import pers.cz.chaoxing.common.quiz.QuizConfig;
+import pers.cz.chaoxing.common.task.PlayerData;
+import pers.cz.chaoxing.common.quiz.PlayerQuizInfo;
+import pers.cz.chaoxing.common.VideoInfo;
+import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.exception.CheckCodeException;
 import pers.cz.chaoxing.util.CXUtil;
 
@@ -134,18 +139,18 @@ public class PlayTask implements Runnable, Callable<Boolean> {
     }
 
     private Map<QuizConfig, OptionInfo> getQuestions(TaskInfo taskInfo) {
-        List<QuizInfo> quizInfoList;
+        List<PlayerQuizInfo> playerQuizInfoList;
         while (true)
             try {
-                quizInfoList = CXUtil.getVideoQuiz(taskInfo.getDefaults().getInitdataUrl(), taskInfo.getAttachments()[0].getMid());
+                playerQuizInfoList = CXUtil.getVideoQuiz(taskInfo.getDefaults().getInitdataUrl(), taskInfo.getAttachments()[0].getMid());
                 break;
             } catch (CheckCodeException e) {
                 this.checkCodeCallBack.call(e.getUri(), e.getSession());
             }
         Map<QuizConfig, OptionInfo> questions = new HashMap<>();
-        for (QuizInfo quizInfo : quizInfoList)
-            if (quizInfo.getStyle().equals("QUIZ"))
-                for (QuizConfig quizConfig : quizInfo.getDatas())
+        for (PlayerQuizInfo playerQuizInfo : playerQuizInfoList)
+            if (playerQuizInfo.getStyle().equals("QUIZ"))
+                for (QuizConfig quizConfig : playerQuizInfo.getDatas())
                     if (!quizConfig.isAnswered())
                         for (OptionInfo optionInfo : quizConfig.getOptions())
                             if (optionInfo.isRight()) {

@@ -1,6 +1,6 @@
-package pers.cz.chaoxing.common;
+package pers.cz.chaoxing.common.quiz;
 
-public class QuizInfo {
+public class PlayerQuizInfo {
     private QuizConfig[] datas;
     private String style;
 

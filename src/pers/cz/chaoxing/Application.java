@@ -1,13 +1,17 @@
 package pers.cz.chaoxing;
 
 import net.dongliu.requests.exception.RequestsException;
-import pers.cz.chaoxing.callback.CheckCodeCallBack;
-import pers.cz.chaoxing.common.*;
+import pers.cz.chaoxing.callback.impl.CheckCodeCallBack;
+import pers.cz.chaoxing.common.task.HomeworkData;
+import pers.cz.chaoxing.common.task.PlayerData;
+import pers.cz.chaoxing.common.VideoInfo;
+import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.exception.CheckCodeException;
 import pers.cz.chaoxing.exception.WrongAccountException;
 import pers.cz.chaoxing.thread.LimitedBlockingQueue;
 import pers.cz.chaoxing.thread.PlayTask;
 import pers.cz.chaoxing.util.CXUtil;
+import pers.cz.chaoxing.util.InfoType;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
@@ -98,7 +102,7 @@ public class Application {
                             if (cardUriModel == null || cardUriModel.isEmpty())
                                 cardUriModel = CXUtil.getCardUriModel(baseUri, taskUris[0], params);
                             TaskInfo<HomeworkData> homeworkInfo = CXUtil.getTaskInfo(baseUri, cardUriModel, params, InfoType.Homework);
-                            CXUtil.getExamQuiz(baseUri, homeworkInfo);
+                            CXUtil.answerExamQuiz(baseUri, CXUtil.getExamQuiz(baseUri, homeworkInfo));
                             TaskInfo<PlayerData> taskInfo = CXUtil.getTaskInfo(baseUri, cardUriModel, params, InfoType.Video);
                             if (taskInfo.getAttachments().length > 0 && !taskInfo.getAttachments()[0].isPassed())
                                 if (CXUtil.startRecord(baseUri, params)) {

@@ -7,17 +7,27 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.nodes.FormElement;
 import org.jsoup.select.Elements;
-import pers.cz.chaoxing.common.*;
+import pers.cz.chaoxing.common.VideoInfo;
+import pers.cz.chaoxing.common.quiz.HomeworkQuizInfo;
+import pers.cz.chaoxing.common.quiz.OptionInfo;
+import pers.cz.chaoxing.common.quiz.PlayerQuizInfo;
+import pers.cz.chaoxing.common.quiz.QuizConfig;
+import pers.cz.chaoxing.common.task.HomeworkData;
+import pers.cz.chaoxing.common.task.PlayerData;
+import pers.cz.chaoxing.common.task.TaskData;
+import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.exception.CheckCodeException;
 import pers.cz.chaoxing.exception.WrongAccountException;
 
+import java.io.IOException;
 import java.lang.reflect.Type;
 import java.math.BigInteger;
 import java.net.Proxy;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.*;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class CXUtil {
 
@@ -32,7 +42,7 @@ public class CXUtil {
 
     private static Session session = Requests.session();
 
-    private static Proxy proxy = Proxies.httpProxy("10.81.6.31", 8080);
+    public static Proxy proxy = Proxies.httpProxy("10.14.36.103", 8080);
 
     public static boolean login(String username, String password, String checkCode) throws WrongAccountException {
         String indexUri = session.get("http://dlnu.fy.chaoxing.com/topjs?index=1").proxy(proxy).send().readToText();
@@ -142,7 +152,7 @@ public class CXUtil {
             switch (infoType) {
                 case Video:
                     /*
-                    none video
+                    none player
                      */
                     PlayerData playerData = new PlayerData();
                     playerData.setPassed(true);
@@ -169,7 +179,7 @@ public class CXUtil {
     }
 
     /**
-     * call since video loaded
+     * call since player loaded
      *
      * @param baseUri
      * @param params
@@ -181,7 +191,7 @@ public class CXUtil {
     }
 
     /**
-     * call since video loaded first
+     * call since player loaded first
      *
      * @param taskInfo
      * @param videoInfo
@@ -192,7 +202,7 @@ public class CXUtil {
     }
 
     /**
-     * call since video finished
+     * call since player finished
      *
      * @param taskInfo
      * @param videoInfo
@@ -203,7 +213,7 @@ public class CXUtil {
     }
 
     /**
-     * call since video clicked to play
+     * call since player clicked to play
      *
      * @param taskInfo
      * @param videoInfo
@@ -215,7 +225,7 @@ public class CXUtil {
     }
 
     /**
-     * call since video clicked to pause
+     * call since player clicked to pause
      *
      * @param taskInfo
      * @param videoInfo
@@ -229,7 +239,7 @@ public class CXUtil {
     }
 
     /**
-     * call each intervalTime since video playing
+     * call each intervalTime since player playing
      *
      * @param taskInfo
      * @param videoInfo
@@ -353,20 +363,20 @@ public class CXUtil {
     }
 
     /**
-     * call since video start playing
+     * call since player start playing
      *
      * @param initDataUrl
      * @param mid
      * @return
      */
-    public static List<QuizInfo> getVideoQuiz(String initDataUrl, String mid) throws CheckCodeException {
+    public static List<PlayerQuizInfo> getVideoQuiz(String initDataUrl, String mid) throws CheckCodeException {
         HashMap<String, String> params = new HashMap<>();
         params.put("mid", mid);
         params.put("start", "undefined");
         RawResponse response = session.get(initDataUrl).params(params).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(response.getHeader("location"), session);
-        return JSONArray.parseArray(response.readToText(), QuizInfo.class);
+        return JSONArray.parseArray(response.readToText(), PlayerQuizInfo.class);
     }
 
     public static boolean answerVideoQuiz(String baseUri, String validationUrl, String resourceId, String answer) throws CheckCodeException {
@@ -380,7 +390,7 @@ public class CXUtil {
         return jsonObject.getString("answer").equals(answer) && jsonObject.getBoolean("isRight");
     }
 
-    public static List<QuizInfo> getExamQuiz(String baseUri, TaskInfo<HomeworkData> taskInfo) throws CheckCodeException {
+    public static HomeworkQuizInfo getExamQuiz(String baseUri, TaskInfo<HomeworkData> taskInfo) throws CheckCodeException {
         HashMap<String, String> params = new HashMap<>();
         params.put("api", "1");
         params.put("needRedirect", "true");
@@ -402,33 +412,177 @@ public class CXUtil {
         FormElement form = elements.select("form#form1").forms().get(0);
         form.setBaseUri(baseUri);
         Elements questions = form.select("div.TiMu");
-        List<QuizInfo> quizInfoList = new ArrayList<>();
-        QuizInfo quizInfo = new QuizInfo();
-        quizInfoList.add(quizInfo);
-        quizInfo.setDatas(new QuizConfig[questions.size()]);
+        HomeworkQuizInfo homeworkQuizInfo = new HomeworkQuizInfo();
+        homeworkQuizInfo.setDatas(new QuizConfig[questions.size()]);
+        homeworkQuizInfo.setPyFlag(form.getElementById("pyFlag").val());
+        homeworkQuizInfo.setCourseId(form.getElementById("courseId").val());
+        homeworkQuizInfo.setClassId(form.getElementById("classId").val());
+        homeworkQuizInfo.setApi(form.getElementById("api").val());
+        homeworkQuizInfo.setWorkAnswerId(form.getElementById("workAnswerId").val());
+        homeworkQuizInfo.setTotalQuestionNum(form.getElementById("totalQuestionNum").val());
+        homeworkQuizInfo.setFullScore(form.getElementById("fullScore").val());
+        homeworkQuizInfo.setKnowledgeid(form.getElementById("knowledgeid").val());
+        homeworkQuizInfo.setOldSchoolId(form.getElementById("oldSchoolId").val());
+        homeworkQuizInfo.setOldWorkId(form.getElementById("oldWorkId").val());
+        homeworkQuizInfo.setJobid(form.getElementById("jobid").val());
+        homeworkQuizInfo.setWorkRelationId(form.getElementById("workRelationId").val());
+        homeworkQuizInfo.setEnc(form.getElementById("enc").val());
+        homeworkQuizInfo.setEnc_work(form.getElementById("enc_work").val());
+        homeworkQuizInfo.setUserId(form.getElementById("userId").val());
         for (int i = 0; i < questions.size(); i++) {
-            quizInfo.getDatas()[i] = new QuizConfig();
-            quizInfo.getDatas()[i].setValidationUrl(form.absUrl("action"));
-            quizInfo.getDatas()[i].setAnswered(isAnswered);
-            quizInfo.getDatas()[i].setDescription(questions.get(i).select("div.Zy_TItle div.clearfix").first().text());
+            homeworkQuizInfo.getDatas()[i] = new QuizConfig();
+            homeworkQuizInfo.getDatas()[i].setValidationUrl(form.absUrl("action"));
+            homeworkQuizInfo.getDatas()[i].setAnswered(isAnswered);
+            homeworkQuizInfo.getDatas()[i].setDescription(questions.get(i).select("div.Zy_TItle div.clearfix").first().text());
             Element input = questions.get(i).select("input[id~=answertype]").first();
             Element previous = input.previousElementSibling();
             if (previous.tagName().equals("input"))
-                quizInfo.getDatas()[i].setMemberinfo(previous.id());
-            quizInfo.getDatas()[i].setResourceId(input.id());
-            quizInfo.getDatas()[i].setQuestionType(input.val());
+                homeworkQuizInfo.getDatas()[i].setMemberinfo(previous.id());
+            homeworkQuizInfo.getDatas()[i].setResourceId(input.id());
+            homeworkQuizInfo.getDatas()[i].setQuestionType(input.val());
             Elements lis = questions.get(i).getElementsByTag("ul").first().getElementsByTag("li");
-            quizInfo.getDatas()[i].setOptions(new OptionInfo[lis.size()]);
+            homeworkQuizInfo.getDatas()[i].setOptions(new OptionInfo[lis.size()]);
             for (int j = 0; j < lis.size(); j++) {
-                quizInfo.getDatas()[i].getOptions()[j] = new OptionInfo();
-                quizInfo.getDatas()[i].getOptions()[j].setName(lis.get(j).select("label input").val());
-                quizInfo.getDatas()[i].getOptions()[j].setDescription(lis.get(j).select("a").text());
-                if (quizInfo.getDatas()[i].getOptions()[j].getDescription().isEmpty())
-                    quizInfo.getDatas()[i].getOptions()[j].setDescription(quizInfo.getDatas()[i].getOptions()[j].getName());
+                homeworkQuizInfo.getDatas()[i].getOptions()[j] = new OptionInfo();
+                homeworkQuizInfo.getDatas()[i].getOptions()[j].setName(lis.get(j).select("label input").val());
+                homeworkQuizInfo.getDatas()[i].getOptions()[j].setDescription(lis.get(j).select("a").text());
+                if (homeworkQuizInfo.getDatas()[i].getOptions()[j].getDescription().isEmpty())
+                    homeworkQuizInfo.getDatas()[i].getOptions()[j].setDescription(homeworkQuizInfo.getDatas()[i].getOptions()[j].getName());
             }
         }
-        return quizInfoList;
+        return homeworkQuizInfo;
     }
+
+    /**
+     * JavaScript code:
+     * function encrypt(h, g) {
+     * if (g == null || g.length <= 0) {
+     * return null
+     * }
+     * var m = "";
+     * for (var d = 0; d < g.length; d++) {
+     * m += g.charCodeAt(d).toString()
+     * }
+     * var j = Math.floor(m.length / 5);
+     * var c = parseInt(m.charAt(j) + m.charAt(j * 2) + m.charAt(j * 3) + m.charAt(j * 4));
+     * var a = Math.ceil(g.length / 2);
+     * var k = Math.pow(2, 31) - 1;
+     * if (c < 2) {
+     * alert("Algorithm cannot find a suitable hash. Please choose a different password. \nPossible considerations are to choose a more complex or longer password.");
+     * return null
+     * }
+     * var b = Math.random();
+     * var e = Math.round(b * 1000000000) % 100000000;
+     * m += e;
+     * if (m.length > 10) {
+     * m = parseInt(m.substring(0, 10)).toString()
+     * }
+     * m = (c * m + a) % k;
+     * var f = "";
+     * var l = "";
+     * for (var d = 0; d < h.length; d++) {
+     * f = parseInt(h.charCodeAt(d) ^ Math.floor((m / k) * 255));
+     * if (f < 16) {
+     * l += "0" + f.toString(16)
+     * } else {
+     * l += f.toString(16)
+     * }
+     * m = (c * m + a) % k
+     * }
+     * e = e.toString(16);
+     * while (e.length < 8) {
+     * e = "0" + e
+     * }
+     * l += e;
+     * return l + "&rd=" + b
+     * }
+     * var __e = function() {
+     * var g = {
+     * "x": -1,
+     * "y": -1
+     * };
+     * var c = document.getElementById("userId").value;
+     * var a = document.getElementById("workRelationId").value;
+     * var j = c + "_" + a;
+     * try {
+     * if (typeof(j) == "undefined") {
+     * j = "axvP^&Sg"
+     * }
+     * var d = window.event;
+     * if (typeof(d) == "undefined") {
+     * var k = arguments.callee.caller,
+     * l = k;
+     * while (k != null) {
+     * l = k;
+     * k = k.caller
+     * }
+     * d = l.arguments[0]
+     * }
+     * if (d != null) {
+     * var i = document.documentElement.scrollLeft || document.body.scrollLeft;
+     * var h = document.documentElement.scrollTop || document.body.scrollTop;
+     * g.x = d.pageX || d.clientX + i;
+     * g.y = d.pageY || d.clientY + h
+     * }
+     * } catch (f) {
+     * g = {
+     * "x": -2,
+     * "y": -2
+     * }
+     * }
+     * var b = "(" + Math.ceil(g.x) + "|" + Math.ceil(g.y) + ")";
+     * return encrypt(b, j) + "&value=" + b + "&wid=" + a
+     * };
+     * window.getEnc = function() {
+     * return __e()
+     * };
+     */
+    public static boolean answerExamQuiz(String baseUri, HomeworkQuizInfo homeworkQuizInfo) throws CheckCodeException, IOException {
+        int pageWidth = 898;
+        int pageHeight = 687;
+        String value = "(" + pageWidth + "|" + pageHeight + ")";
+        String uwId = homeworkQuizInfo.getUserId() + "_" + homeworkQuizInfo.getWorkRelationId();
+//        if (uwId == null)
+//            uwId = "axvP^&Sg";
+        int uwIdLength = uwId.length() / 2 + ((uwId.length() % 2 == 0) ? 0 : 1);
+//        double random = Math.random();
+        double random = 0.03926823033418314;
+        long randomMillion = Math.round(random * 1000000000) % 100000000;
+        StringBuilder uwIdASCII = new StringBuilder();
+        for (byte ascii : uwId.getBytes())
+            uwIdASCII.append(ascii);
+        StringBuilder multiplierStr = new StringBuilder();
+        for (int i = 1; i <= 4; i++)
+            multiplierStr.append(uwIdASCII.charAt(uwIdASCII.length() / 5 * i));
+        int multiplier = Integer.valueOf(multiplierStr.toString());
+        if (multiplier < 2)
+            throw new IOException("Algorithm cannot find a suitable hash. Please choose a different password. \nPossible considerations are to choose a more complex or longer password.");
+        uwIdASCII.append(randomMillion);
+        if (uwIdASCII.length() > 10)
+            uwIdASCII.setLength(10);
+        long n = (multiplier * Long.valueOf(uwIdASCII.toString()) + uwIdLength) % Integer.MAX_VALUE;
+        StringBuilder pos = new StringBuilder();
+        for (char c : value.toCharArray()) {
+            pos.append(String.format("%02x", c ^ Math.floorDiv(n * 255, Integer.MAX_VALUE)));
+            n = (multiplier * n + uwIdLength) % Integer.MAX_VALUE;
+        }
+        pos.append(String.format("%08x", randomMillion));
+        HashMap<String, String> params = new HashMap<>();
+        params.put("version", "1");
+        params.put("ua", "pc");
+        params.put("formType", "post");
+        params.put("saveStatus", "1");
+        params.put("pos", pos.toString());
+        params.put("rd", String.valueOf(random));
+        params.put("value", value);
+        params.put("wid", homeworkQuizInfo.getWorkRelationId());
+        RawResponse response = session.get(baseUri + homeworkQuizInfo.getDatas()[0].getValidationUrl()).params(params).followRedirect(false).proxy(proxy).send();
+        if (response.getStatusCode() == StatusCodes.FOUND)
+            throw new CheckCodeException(response.getHeader("lotcation"), session);
+        JSONObject jsonObject = JSONObject.parseObject(response.readToText());
+        return jsonObject.getString("answer").equals("..answer..") && jsonObject.getBoolean("isRight");
+    }
+
 
     public static void saveCheckCode(String path) {
         session.get("http://passport2.chaoxing.com/num/code?" + System.currentTimeMillis()).proxy(proxy).send().writeToFile(path);

@@ -1,4 +1,4 @@
-package pers.cz.chaoxing.common;
+package pers.cz.chaoxing.common.task;
 
 public class TaskInfo<T extends TaskData> {
     private T[] attachments;

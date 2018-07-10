@@ -1,4 +1,4 @@
-package pers.cz.chaoxing.common;
+package pers.cz.chaoxing.common.task;
 
 public class TaskData<T extends TaskDataProperty> {
     private String jobid;

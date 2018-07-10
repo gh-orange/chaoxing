@@ -1,4 +1,4 @@
-package pers.cz.chaoxing.common;
+package pers.cz.chaoxing.common.quiz;
 
 public class QuizConfig {
     private String memberinfo;

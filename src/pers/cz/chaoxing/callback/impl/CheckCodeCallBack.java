@@ -1,13 +1,16 @@
-package pers.cz.chaoxing.callback;
+package pers.cz.chaoxing.callback.impl;
 
 import net.dongliu.requests.RawResponse;
 import net.dongliu.requests.Session;
 import net.dongliu.requests.StatusCodes;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import pers.cz.chaoxing.callback.CallBack;
+import pers.cz.chaoxing.util.CXUtil;
 
 import java.awt.*;
 import java.io.File;
+import java.net.Proxy;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
@@ -19,11 +22,14 @@ public class CheckCodeCallBack implements CallBack<Boolean> {
     private String baseUri;
     private Session session;
     private String checkCodePath;
-    private Scanner scanner = new Scanner(System.in);
-    private ReentrantLock lock = new ReentrantLock();
+    private Scanner scanner;
+    private ReentrantLock lock;
+    private static Proxy proxy = CXUtil.proxy;
 
     public CheckCodeCallBack(String checkCodePath) {
         this.checkCodePath = checkCodePath;
+        this.scanner = new Scanner(System.in);
+        this.lock = new ReentrantLock();
     }
 
     @Override
@@ -59,20 +65,20 @@ public class CheckCodeCallBack implements CallBack<Boolean> {
     }
 
     private boolean saveCheckCode(String path) {
-        RawResponse response = session.get(completeUri).followRedirect(false).send();
+        RawResponse response = session.get(completeUri).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.NOT_FOUND || response.getStatusCode() == StatusCodes.FOUND)
             return false;
         Document document = Jsoup.parse(response.readToText());
         this.actionUri = document.select("form").attr("action");
         String imgUri = document.select("img").attr("src");
-        session.get(this.baseUri + imgUri).send().writeToFile(path);
+        session.get(this.baseUri + imgUri).proxy(CXUtil.proxy).send().writeToFile(path);
         return true;
     }
 
     private boolean setCheckCode(String checkCode) {
         Map<String, String> params = new HashMap<>();
         params.put("ucode", checkCode);
-        RawResponse response = session.get(this.baseUri + this.actionUri).params(params).followRedirect(false).send();
+        RawResponse response = session.get(this.baseUri + this.actionUri).params(params).followRedirect(false).proxy(proxy).send();
         return response.getStatusCode() != StatusCodes.FOUND;
     }
 
