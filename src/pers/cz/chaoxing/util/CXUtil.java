@@ -601,7 +601,11 @@ public class CXUtil {
         body.put("enc_work", homeworkQuizInfo.getEnc_work());
         body.put("userId", homeworkQuizInfo.getUserId());
         body.put("answerwqbid", homeworkQuizInfo.getAnswerwqbid());
-
+        for (QuizConfig quizConfig : homeworkQuizInfo.getDatas()) {
+            for (OptionInfo optionInfo : quizConfig.getOptions())
+                if (optionInfo.isRight())
+                    body.put(quizConfig.getResourceId(), optionInfo.getName());
+        }
 
         RawResponse response = session.get(baseUri + homeworkQuizInfo.getDatas()[0].getValidationUrl()).params(params).body(body).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
