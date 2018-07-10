@@ -17,6 +17,7 @@ public class HomeworkQuizInfo {
     private String enc;
     private String enc_work;
     private String userId;
+    private String answerwqbid;
 
     public QuizConfig[] getDatas() {
         return datas;
@@ -144,5 +145,13 @@ public class HomeworkQuizInfo {
 
     public void setUserId(String userId) {
         this.userId = userId;
+    }
+
+    public String getAnswerwqbid() {
+        return answerwqbid;
+    }
+
+    public void setAnswerwqbid(String answerwqbid) {
+        this.answerwqbid = answerwqbid;
     }
 }

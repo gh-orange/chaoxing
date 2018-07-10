@@ -102,7 +102,7 @@ public class Application {
                             if (cardUriModel == null || cardUriModel.isEmpty())
                                 cardUriModel = CXUtil.getCardUriModel(baseUri, taskUris[0], params);
                             TaskInfo<HomeworkData> homeworkInfo = CXUtil.getTaskInfo(baseUri, cardUriModel, params, InfoType.Homework);
-                            CXUtil.answerExamQuiz(baseUri, CXUtil.getExamQuiz(baseUri, homeworkInfo));
+                            CXUtil.answerHomeworkQuiz(baseUri, CXUtil.getHomeworkQuiz(baseUri, homeworkInfo));
                             TaskInfo<PlayerData> taskInfo = CXUtil.getTaskInfo(baseUri, cardUriModel, params, InfoType.Video);
                             if (taskInfo.getAttachments().length > 0 && !taskInfo.getAttachments()[0].isPassed())
                                 if (CXUtil.startRecord(baseUri, params)) {

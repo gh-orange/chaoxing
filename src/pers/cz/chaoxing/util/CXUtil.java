@@ -28,6 +28,8 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class CXUtil {
 
@@ -390,7 +392,7 @@ public class CXUtil {
         return jsonObject.getString("answer").equals(answer) && jsonObject.getBoolean("isRight");
     }
 
-    public static HomeworkQuizInfo getExamQuiz(String baseUri, TaskInfo<HomeworkData> taskInfo) throws CheckCodeException {
+    public static HomeworkQuizInfo getHomeworkQuiz(String baseUri, TaskInfo<HomeworkData> taskInfo) throws CheckCodeException {
         HashMap<String, String> params = new HashMap<>();
         params.put("api", "1");
         params.put("needRedirect", "true");
@@ -413,6 +415,8 @@ public class CXUtil {
         form.setBaseUri(baseUri);
         Elements questions = form.select("div.TiMu");
         HomeworkQuizInfo homeworkQuizInfo = new HomeworkQuizInfo();
+        int beginIndex = responseStr.lastIndexOf("= \"", responseStr.indexOf("$(\"#answerwqbid\")"));
+        homeworkQuizInfo.setAnswerwqbid(responseStr.substring(beginIndex, responseStr.indexOf("\"", beginIndex)));
         homeworkQuizInfo.setDatas(new QuizConfig[questions.size()]);
         homeworkQuizInfo.setPyFlag(form.getElementById("pyFlag").val());
         homeworkQuizInfo.setCourseId(form.getElementById("courseId").val());
@@ -537,7 +541,7 @@ public class CXUtil {
      * return __e()
      * };
      */
-    public static boolean answerExamQuiz(String baseUri, HomeworkQuizInfo homeworkQuizInfo) throws CheckCodeException, IOException {
+    public static boolean answerHomeworkQuiz(String baseUri, HomeworkQuizInfo homeworkQuizInfo) throws CheckCodeException, IOException {
         int pageWidth = 898;
         int pageHeight = 687;
         String value = "(" + pageWidth + "|" + pageHeight + ")";
@@ -567,16 +571,39 @@ public class CXUtil {
             n = (multiplier * n + uwIdLength) % Integer.MAX_VALUE;
         }
         pos.append(String.format("%08x", randomMillion));
-        HashMap<String, String> params = new HashMap<>();
-        params.put("version", "1");
+        int version = 1;
+        Matcher matcher = Pattern.compile("&version=(\\d)").matcher(homeworkQuizInfo.getDatas()[0].getValidationUrl());
+        if (matcher.find())
+            version += Integer.valueOf(matcher.group(1));
+        Map<String, String> params = new HashMap<>();
         params.put("ua", "pc");
         params.put("formType", "post");
         params.put("saveStatus", "1");
+        params.put("version", String.valueOf(version));
         params.put("pos", pos.toString());
         params.put("rd", String.valueOf(random));
         params.put("value", value);
         params.put("wid", homeworkQuizInfo.getWorkRelationId());
-        RawResponse response = session.get(baseUri + homeworkQuizInfo.getDatas()[0].getValidationUrl()).params(params).followRedirect(false).proxy(proxy).send();
+        Map<String, String> body = new HashMap<>();
+        body.put("pyFlag", homeworkQuizInfo.getPyFlag());
+        body.put("courseId", homeworkQuizInfo.getCourseId());
+        body.put("classId", homeworkQuizInfo.getClassId());
+        body.put("api", homeworkQuizInfo.getApi());
+        body.put("workAnswerId", homeworkQuizInfo.getWorkAnswerId());
+        body.put("totalQuestionNum", homeworkQuizInfo.getTotalQuestionNum());
+        body.put("fullScore", homeworkQuizInfo.getFullScore());
+        body.put("knowledgeid", homeworkQuizInfo.getKnowledgeid());
+        body.put("oldSchoolId", homeworkQuizInfo.getOldSchoolId());
+        body.put("oldWorkId", homeworkQuizInfo.getOldWorkId());
+        body.put("jobid", homeworkQuizInfo.getJobid());
+        body.put("workRelationId", homeworkQuizInfo.getWorkRelationId());
+        body.put("enc", homeworkQuizInfo.getEnc());
+        body.put("enc_work", homeworkQuizInfo.getEnc_work());
+        body.put("userId", homeworkQuizInfo.getUserId());
+        body.put("answerwqbid", homeworkQuizInfo.getAnswerwqbid());
+
+
+        RawResponse response = session.get(baseUri + homeworkQuizInfo.getDatas()[0].getValidationUrl()).params(params).body(body).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(response.getHeader("lotcation"), session);
         JSONObject jsonObject = JSONObject.parseObject(response.readToText());
