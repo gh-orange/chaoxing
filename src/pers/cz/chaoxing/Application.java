@@ -25,7 +25,7 @@ import java.util.Scanner;
 import java.util.concurrent.*;
 
 /**
- * ChaoxingVideoTool - a tool to view faster
+ * ChaoxingPlugin - A hands-free tool for watching video and doing homework faster
  * Copyright (C) 2018  orange
  * <p>
  * This program is free software: you can redistribute it and/or modify
