@@ -26,6 +26,7 @@ import java.net.Proxy;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -44,7 +45,8 @@ public class CXUtil {
 
     private static Session session = Requests.session();
 
-    public static Proxy proxy = Proxies.httpProxy("10.14.36.103", 8080);
+    //    public static Proxy proxy = Proxies.httpProxy("10.14.36.103", 8080);
+    public static Proxy proxy = null;
 
     public static boolean login(String username, String password, String checkCode) throws WrongAccountException {
         String indexUri = session.get("http://dlnu.fy.chaoxing.com/topjs?index=1").proxy(proxy).send().readToText();
@@ -412,11 +414,12 @@ public class CXUtil {
         Elements elements = Jsoup.parse(responseStr).select("div.CeYan");
         boolean isAnswered = !elements.select("div.ZyTop h3 span").text().contains("待做");
         FormElement form = elements.select("form#form1").forms().get(0);
-        form.setBaseUri(baseUri);
         Elements questions = form.select("div.TiMu");
         HomeworkQuizInfo homeworkQuizInfo = new HomeworkQuizInfo();
-        int beginIndex = responseStr.lastIndexOf("= \"", responseStr.indexOf("$(\"#answerwqbid\")"));
-        homeworkQuizInfo.setAnswerwqbid(responseStr.substring(beginIndex, responseStr.indexOf("\"", beginIndex)));
+        String beginStr = "= \"";
+        String endStr = "\"";
+        int beginIndex = responseStr.lastIndexOf(beginStr, responseStr.indexOf("$(\"#answerwqbid\")")) + beginStr.length();
+        homeworkQuizInfo.setAnswerwqbid(responseStr.substring(beginIndex, responseStr.indexOf(endStr, beginIndex)));
         homeworkQuizInfo.setDatas(new QuizConfig[questions.size()]);
         homeworkQuizInfo.setPyFlag(form.getElementById("pyFlag").val());
         homeworkQuizInfo.setCourseId(form.getElementById("courseId").val());
@@ -435,7 +438,7 @@ public class CXUtil {
         homeworkQuizInfo.setUserId(form.getElementById("userId").val());
         for (int i = 0; i < questions.size(); i++) {
             homeworkQuizInfo.getDatas()[i] = new QuizConfig();
-            homeworkQuizInfo.getDatas()[i].setValidationUrl(form.absUrl("action"));
+            homeworkQuizInfo.getDatas()[i].setValidationUrl(baseUri + "/work/" + form.attr("action"));
             homeworkQuizInfo.getDatas()[i].setAnswered(isAnswered);
             homeworkQuizInfo.getDatas()[i].setDescription(questions.get(i).select("div.Zy_TItle div.clearfix").first().text());
             Element input = questions.get(i).select("input[id~=answertype]").first();
@@ -541,7 +544,21 @@ public class CXUtil {
      * return __e()
      * };
      */
-    public static boolean answerHomeworkQuiz(String baseUri, HomeworkQuizInfo homeworkQuizInfo) throws CheckCodeException, IOException {
+    public static boolean answerHomeworkQuiz(String baseUri, HomeworkQuizInfo homeworkQuizInfo) throws CheckCodeException, WrongAccountException {
+        Map<String, String> params = new HashMap<>();
+        params.put("courseId", homeworkQuizInfo.getCourseId());
+        params.put("classId", homeworkQuizInfo.getClassId());
+        params.put("_", String.valueOf(System.currentTimeMillis()));
+        switch (JSONObject.parseObject(session.get(baseUri + "/work/validate").params(params).followRedirect(false).proxy(proxy).send().readToText()).getInteger("status")) {
+            case 1:
+                throw new WrongAccountException();
+            case 2:
+                throw new CheckCodeException(baseUri + "/img/code", session);
+            case 3:
+                break;
+            default:
+                return false;
+        }
         int pageWidth = 898;
         int pageHeight = 687;
         String value = "(" + pageWidth + "|" + pageHeight + ")";
@@ -549,8 +566,8 @@ public class CXUtil {
 //        if (uwId == null)
 //            uwId = "axvP^&Sg";
         int uwIdLength = uwId.length() / 2 + ((uwId.length() % 2 == 0) ? 0 : 1);
-//        double random = Math.random();
-        double random = 0.03926823033418314;
+        double random = Math.random();
+//        double random = 0.03926823033418314;
         long randomMillion = Math.round(random * 1000000000) % 100000000;
         StringBuilder uwIdASCII = new StringBuilder();
         for (byte ascii : uwId.getBytes())
@@ -559,8 +576,8 @@ public class CXUtil {
         for (int i = 1; i <= 4; i++)
             multiplierStr.append(uwIdASCII.charAt(uwIdASCII.length() / 5 * i));
         int multiplier = Integer.valueOf(multiplierStr.toString());
-        if (multiplier < 2)
-            throw new IOException("Algorithm cannot find a suitable hash. Please choose a different password. \nPossible considerations are to choose a more complex or longer password.");
+//        if (multiplier < 2)
+//            throw new IOException("Algorithm cannot find a suitable hash. Please choose a different password. \nPossible considerations are to choose a more complex or longer password.");
         uwIdASCII.append(randomMillion);
         if (uwIdASCII.length() > 10)
             uwIdASCII.setLength(10);
@@ -572,10 +589,10 @@ public class CXUtil {
         }
         pos.append(String.format("%08x", randomMillion));
         int version = 1;
-        Matcher matcher = Pattern.compile("&version=(\\d)").matcher(homeworkQuizInfo.getDatas()[0].getValidationUrl());
+        Matcher matcher = Pattern.compile("version=(\\d)").matcher(homeworkQuizInfo.getDatas()[0].getValidationUrl());
         if (matcher.find())
             version += Integer.valueOf(matcher.group(1));
-        Map<String, String> params = new HashMap<>();
+        params.clear();
         params.put("ua", "pc");
         params.put("formType", "post");
         params.put("saveStatus", "1");
@@ -584,7 +601,7 @@ public class CXUtil {
         params.put("rd", String.valueOf(random));
         params.put("value", value);
         params.put("wid", homeworkQuizInfo.getWorkRelationId());
-        Map<String, String> body = new HashMap<>();
+        Map<String, String> body = new IdentityHashMap<>();
         body.put("pyFlag", homeworkQuizInfo.getPyFlag());
         body.put("courseId", homeworkQuizInfo.getCourseId());
         body.put("classId", homeworkQuizInfo.getClassId());
@@ -602,18 +619,22 @@ public class CXUtil {
         body.put("userId", homeworkQuizInfo.getUserId());
         body.put("answerwqbid", homeworkQuizInfo.getAnswerwqbid());
         for (QuizConfig quizConfig : homeworkQuizInfo.getDatas()) {
+            StringBuilder answerStr = new StringBuilder();
             for (OptionInfo optionInfo : quizConfig.getOptions())
-                if (optionInfo.isRight())
-                    body.put(quizConfig.getResourceId(), optionInfo.getName());
+                if (optionInfo.isRight()) {
+                    body.put(new String(quizConfig.getResourceId()), optionInfo.getName());
+                    if (quizConfig.getMemberinfo() != null && !quizConfig.getMemberinfo().isEmpty())
+                        answerStr.append(optionInfo.getName());
+                }
+            if (quizConfig.getMemberinfo() != null && !quizConfig.getMemberinfo().isEmpty())
+                body.put(new String(quizConfig.getMemberinfo()), answerStr.toString());
         }
-
-        RawResponse response = session.get(baseUri + homeworkQuizInfo.getDatas()[0].getValidationUrl()).params(params).body(body).followRedirect(false).proxy(proxy).send();
+        RawResponse response = session.post(homeworkQuizInfo.getDatas()[0].getValidationUrl()).params(params).body(body).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(response.getHeader("lotcation"), session);
-        JSONObject jsonObject = JSONObject.parseObject(response.readToText());
-        return jsonObject.getString("answer").equals("..answer..") && jsonObject.getBoolean("isRight");
+        String responseStr = response.readToText();
+        return !responseStr.contains("提交失败");
     }
-
 
     public static void saveCheckCode(String path) {
         session.get("http://passport2.chaoxing.com/num/code?" + System.currentTimeMillis()).proxy(proxy).send().writeToFile(path);

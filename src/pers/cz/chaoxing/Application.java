@@ -2,6 +2,9 @@ package pers.cz.chaoxing;
 
 import net.dongliu.requests.exception.RequestsException;
 import pers.cz.chaoxing.callback.impl.CheckCodeCallBack;
+import pers.cz.chaoxing.common.quiz.HomeworkQuizInfo;
+import pers.cz.chaoxing.common.quiz.OptionInfo;
+import pers.cz.chaoxing.common.quiz.QuizConfig;
 import pers.cz.chaoxing.common.task.HomeworkData;
 import pers.cz.chaoxing.common.task.PlayerData;
 import pers.cz.chaoxing.common.VideoInfo;
@@ -10,6 +13,7 @@ import pers.cz.chaoxing.exception.CheckCodeException;
 import pers.cz.chaoxing.exception.WrongAccountException;
 import pers.cz.chaoxing.thread.LimitedBlockingQueue;
 import pers.cz.chaoxing.thread.PlayTask;
+import pers.cz.chaoxing.util.AnswerUtil;
 import pers.cz.chaoxing.util.CXUtil;
 import pers.cz.chaoxing.util.InfoType;
 
@@ -43,7 +47,7 @@ import java.util.concurrent.*;
  */
 public class Application {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws WrongAccountException {
         System.out.println("ChaoxingVideoTool v1.0.1 - powered by orange");
         System.out.println("License - GPLv3: This is a free & share software");
         System.out.println("You can checking source code from: https://github.com/cz111000/chaoxing");
@@ -102,7 +106,22 @@ public class Application {
                             if (cardUriModel == null || cardUriModel.isEmpty())
                                 cardUriModel = CXUtil.getCardUriModel(baseUri, taskUris[0], params);
                             TaskInfo<HomeworkData> homeworkInfo = CXUtil.getTaskInfo(baseUri, cardUriModel, params, InfoType.Homework);
-                            CXUtil.answerHomeworkQuiz(baseUri, CXUtil.getHomeworkQuiz(baseUri, homeworkInfo));
+                            HomeworkQuizInfo homeworkQuizInfo = CXUtil.getHomeworkQuiz(baseUri, homeworkInfo);
+                            if (homeworkQuizInfo.getDatas().length > 0 && !homeworkQuizInfo.getDatas()[0].isAnswered()) {
+                                System.out.println("Homework did not pass:" + homeworkQuizInfo.getWorkRelationId());
+                                AnswerUtil.getAnswer(homeworkQuizInfo.getDatas());
+                                if (CXUtil.answerHomeworkQuiz(baseUri, homeworkQuizInfo)) {
+                                    for (QuizConfig quizConfig : homeworkQuizInfo.getDatas()) {
+                                        System.out.print("answer success:");
+                                        System.out.println(quizConfig.getDescription());
+                                        for (OptionInfo optionInfo : quizConfig.getOptions()) {
+                                            if (optionInfo.isRight())
+                                                System.out.println(optionInfo.getName() + "." + optionInfo.getDescription());
+                                        }
+                                    }
+                                    System.out.println("Homework finish:" + homeworkQuizInfo.getWorkRelationId());
+                                }
+                            }
                             TaskInfo<PlayerData> taskInfo = CXUtil.getTaskInfo(baseUri, cardUriModel, params, InfoType.Video);
                             if (taskInfo.getAttachments().length > 0 && !taskInfo.getAttachments()[0].isPassed())
                                 if (CXUtil.startRecord(baseUri, params)) {

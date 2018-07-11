@@ -71,13 +71,18 @@ public class CheckCodeCallBack implements CallBack<Boolean> {
         Document document = Jsoup.parse(response.readToText());
         this.actionUri = document.select("form").attr("action");
         String imgUri = document.select("img").attr("src");
-        session.get(this.baseUri + imgUri).proxy(CXUtil.proxy).send().writeToFile(path);
+        if (imgUri.isEmpty()) {
+            this.actionUri = "/img/ajaxValidate2";
+            session.get(completeUri).proxy(CXUtil.proxy).send().writeToFile(path);
+        } else
+            session.get(this.baseUri + imgUri).proxy(CXUtil.proxy).send().writeToFile(path);
         return true;
     }
 
     private boolean setCheckCode(String checkCode) {
         Map<String, String> params = new HashMap<>();
         params.put("ucode", checkCode);
+        params.put("code", checkCode);
         RawResponse response = session.get(this.baseUri + this.actionUri).params(params).followRedirect(false).proxy(proxy).send();
         return response.getStatusCode() != StatusCodes.FOUND;
     }
