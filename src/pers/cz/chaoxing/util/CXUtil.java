@@ -6,6 +6,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.nodes.FormElement;
+import org.jsoup.nodes.TextNode;
 import org.jsoup.select.Elements;
 import pers.cz.chaoxing.common.VideoInfo;
 import pers.cz.chaoxing.common.quiz.HomeworkQuizInfo;
@@ -19,10 +20,11 @@ import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.exception.CheckCodeException;
 import pers.cz.chaoxing.exception.WrongAccountException;
 
-import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Type;
 import java.math.BigInteger;
 import java.net.Proxy;
+import java.net.URLEncoder;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
@@ -45,8 +47,8 @@ public class CXUtil {
 
     private static Session session = Requests.session();
 
-    //    public static Proxy proxy = Proxies.httpProxy("10.14.36.103", 8080);
-    public static Proxy proxy = null;
+    public static Proxy proxy = Proxies.httpProxy("10.14.36.103", 8080);
+//    public static Proxy proxy = null;
 
     public static boolean login(String username, String password, String checkCode) throws WrongAccountException {
         String indexUri = session.get("http://dlnu.fy.chaoxing.com/topjs?index=1").proxy(proxy).send().readToText();
@@ -77,7 +79,7 @@ public class CXUtil {
     public static String getClassesUri() throws CheckCodeException {
         RawResponse response = session.get("http://i.mooc.chaoxing.com/space/index.shtml").followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
-            throw new CheckCodeException(response.getHeader("location"), session);
+            throw new CheckCodeException(session, response.getHeader("location"));
         String src = Jsoup.parse(response.readToText()).select("div.mainright iframe").attr("src");
         for (int i = 0; i < 2; i++) {
             response = session.get(src).followRedirect(false).proxy(proxy).send();
@@ -87,7 +89,7 @@ public class CXUtil {
                 break;
         }
         if (response.getStatusCode() == StatusCodes.FOUND)
-            throw new CheckCodeException(response.getHeader("location"), session);
+            throw new CheckCodeException(session, response.getHeader("location"));
         return response.getURL();
     }
 
@@ -115,7 +117,7 @@ public class CXUtil {
     public static String getCardUriModel(String baseUri, String uri, Map<String, String> params) throws CheckCodeException {
         RawResponse response = session.get(baseUri + uri).params(params).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
-            throw new CheckCodeException(response.getHeader("location"), session);
+            throw new CheckCodeException(session, response.getHeader("location"));
         String cardUri = response.readToText();
         String beginStr = "utEnc=\"";
         String endStr = "\";";
@@ -135,7 +137,7 @@ public class CXUtil {
         RawResponse response = session.get(baseUri + cardUri).followRedirect(false).proxy(proxy).send();
 //        session.get(baseUri + "/mycourse/studentstudycourselist").params(params).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
-            throw new CheckCodeException(response.getHeader("location"), session);
+            throw new CheckCodeException(session, response.getHeader("location"));
         String responseStr = response.readToText();
         String beginStr = "mArg = ";
         String endStr = ";";
@@ -200,6 +202,7 @@ public class CXUtil {
      * @param taskInfo
      * @param videoInfo
      * @return
+     * @throws CheckCodeException
      */
     public static boolean onStart(TaskInfo<PlayerData> taskInfo, VideoInfo videoInfo) throws CheckCodeException {
         return sendLog(taskInfo, videoInfo, (int) (taskInfo.getAttachments()[0].getHeadOffset() / 1000), 3);
@@ -211,6 +214,7 @@ public class CXUtil {
      * @param taskInfo
      * @param videoInfo
      * @return
+     * @throws CheckCodeException
      */
     public static boolean onEnd(TaskInfo taskInfo, VideoInfo videoInfo) throws CheckCodeException {
         return sendLog(taskInfo, videoInfo, videoInfo.getDuration(), 4);
@@ -223,6 +227,7 @@ public class CXUtil {
      * @param videoInfo
      * @param playSecond
      * @return
+     * @throws CheckCodeException
      */
     public static boolean onPlay(TaskInfo taskInfo, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
         return sendLog(taskInfo, videoInfo, playSecond, 3);
@@ -235,6 +240,7 @@ public class CXUtil {
      * @param videoInfo
      * @param playSecond
      * @return
+     * @throws CheckCodeException
      */
     public static boolean onPause(TaskInfo taskInfo, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
         if (taskInfo.getDefaults().getChapterId() != null && !taskInfo.getDefaults().getChapterId().isEmpty())
@@ -249,6 +255,7 @@ public class CXUtil {
      * @param videoInfo
      * @param playSecond
      * @return
+     * @throws CheckCodeException
      */
     public static boolean onPlayProgress(TaskInfo taskInfo, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
         return sendLog(taskInfo, videoInfo, playSecond, 0);
@@ -362,7 +369,7 @@ public class CXUtil {
         else
             response = session.get(taskInfo.getDefaults().getReportUrl()).params(params).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
-            throw new CheckCodeException(response.getHeader("location"), session);
+            throw new CheckCodeException(session, response.getHeader("location"));
         return JSONObject.parseObject(response.readToText()).getBoolean("isPassed");
     }
 
@@ -372,6 +379,7 @@ public class CXUtil {
      * @param initDataUrl
      * @param mid
      * @return
+     * @throws CheckCodeException
      */
     public static List<PlayerQuizInfo> getVideoQuiz(String initDataUrl, String mid) throws CheckCodeException {
         HashMap<String, String> params = new HashMap<>();
@@ -379,7 +387,7 @@ public class CXUtil {
         params.put("start", "undefined");
         RawResponse response = session.get(initDataUrl).params(params).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
-            throw new CheckCodeException(response.getHeader("location"), session);
+            throw new CheckCodeException(session, response.getHeader("location"));
         return JSONArray.parseArray(response.readToText(), PlayerQuizInfo.class);
     }
 
@@ -389,12 +397,12 @@ public class CXUtil {
         params.put("answer", "'" + answer + "'");
         RawResponse response = session.get(baseUri + validationUrl).params(params).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
-            throw new CheckCodeException(response.getHeader("lotcation"), session);
+            throw new CheckCodeException(session, response.getHeader("lotcation"));
         JSONObject jsonObject = JSONObject.parseObject(response.readToText());
         return jsonObject.getString("answer").equals(answer) && jsonObject.getBoolean("isRight");
     }
 
-    public static HomeworkQuizInfo getHomeworkQuiz(String baseUri, TaskInfo<HomeworkData> taskInfo) throws CheckCodeException {
+    public static HomeworkQuizInfo getHomeworkQuiz(String baseUri, TaskInfo<HomeworkData> taskInfo) {
         HashMap<String, String> params = new HashMap<>();
         params.put("api", "1");
         params.put("needRedirect", "true");
@@ -410,7 +418,7 @@ public class CXUtil {
         params.put("type", taskInfo.getAttachments()[0].getProperty().getWorktype().equals("workB") ? "b" : "");
         params.put("enc", taskInfo.getAttachments()[0].getEnc());
         params.put("utenc", taskInfo.getAttachments()[0].getUtEnc());
-        String responseStr = session.get(baseUri + "/api/work").params(params).proxy(proxy).send().readToText();
+        String responseStr = session.get(baseUri + "/api/work").params(params).maxRedirectCount(2).proxy(proxy).send().readToText();
         Elements elements = Jsoup.parse(responseStr).select("div.CeYan");
         boolean isAnswered = !elements.select("div.ZyTop h3 span").text().contains("待做");
         FormElement form = elements.select("form#form1").forms().get(0);
@@ -548,17 +556,21 @@ public class CXUtil {
         Map<String, String> params = new HashMap<>();
         params.put("courseId", homeworkQuizInfo.getCourseId());
         params.put("classId", homeworkQuizInfo.getClassId());
-        params.put("_", String.valueOf(System.currentTimeMillis()));
-        switch (JSONObject.parseObject(session.get(baseUri + "/work/validate").params(params).followRedirect(false).proxy(proxy).send().readToText()).getInteger("status")) {
-            case 1:
-                throw new WrongAccountException();
-            case 2:
-                throw new CheckCodeException(baseUri + "/img/code", session);
-            case 3:
-                break;
-            default:
-                return false;
-        }
+        /*
+        cache false
+         */
+//        params.put("_", String.valueOf(System.currentTimeMillis()));
+        if (homeworkQuizInfo.getEnc() == null || homeworkQuizInfo.getEnc().isEmpty())
+            switch (JSONObject.parseObject(session.get(baseUri + "/work/validate").params(params).followRedirect(false).proxy(proxy).send().readToText()).getInteger("status")) {
+                case 1:
+                    throw new WrongAccountException();
+                case 2:
+                    throw new CheckCodeException(session, baseUri + "/img/code");
+                case 3:
+                    break;
+                default:
+                    return false;
+            }
         int pageWidth = 898;
         int pageHeight = 687;
         String value = "(" + pageWidth + "|" + pageHeight + ")";
@@ -631,13 +643,56 @@ public class CXUtil {
         }
         RawResponse response = session.post(homeworkQuizInfo.getDatas()[0].getValidationUrl()).params(params).body(body).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
-            throw new CheckCodeException(response.getHeader("lotcation"), session);
-        String responseStr = response.readToText();
-        return !responseStr.contains("提交失败");
+            throw new CheckCodeException(session, response.getHeader("lotcation"));
+        return !response.readToText().contains("提交失败");
     }
 
     public static void saveCheckCode(String path) {
         session.get("http://passport2.chaoxing.com/num/code?" + System.currentTimeMillis()).proxy(proxy).send().writeToFile(path);
     }
 
+    /**
+     * Thanks to m.3gmfw.cn for database support
+     *
+     * @param quizConfig
+     * @return
+     */
+    public static boolean getHomeworkAnswer(QuizConfig quizConfig) {
+        String description = quizConfig.getDescription().replaceAll("【.*?】", "").replaceAll("[\\pP\\pS\\pZ]", "");
+//            description = description.substring(0, description.length() / 2 + 1);
+        try {
+            description = URLEncoder.encode(description, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            return false;
+        }
+        Document document = Jsoup.parse(Requests.get("https://m.3gmfw.cn/so/" + description + "/").proxy(proxy).send().charset("GBK").readToText());
+        Element ul = document.selectFirst("ul.article-list");
+        if (ul == null)
+            return false;
+        Element li = ul.selectFirst("li");
+        document = Jsoup.parse(Requests.get("https://m.3gmfw.cn/" + li.selectFirst("a").attr("href")).proxy(proxy).send().charset("GBK").readToText());
+        Elements p = document.select("div.content p");
+        Map<String, String> answers = new HashMap<>();
+        String rightAnswers = p.last().text();
+        for (Element element : p)
+            for (TextNode textNode : element.textNodes())
+                if (!textNode.isBlank())
+                    if (!textNode.text().trim().contains("答案：")) {
+                        Matcher matcher = Pattern.compile("[a-zA-Z]").matcher(textNode.text());
+                        if (matcher.find())
+                            answers.put(matcher.group(), textNode.text().trim());
+                    } else
+                        rightAnswers = textNode.text();
+        if (rightAnswers.contains("答案："))
+            rightAnswers = rightAnswers.substring(rightAnswers.indexOf("答案：") + "答案：".length()).trim();
+        for (char c : rightAnswers.toCharArray())
+            for (OptionInfo optionInfo : quizConfig.getOptions()) {
+                if (answers.containsKey(Character.toString(c)) && answers.get(Character.toString(c)).contains(optionInfo.getDescription())) {
+                    optionInfo.setRight(true);
+                    if (!quizConfig.getQuestionType().equals("1"))
+                        break;
+                }
+            }
+        return true;
+    }
 }

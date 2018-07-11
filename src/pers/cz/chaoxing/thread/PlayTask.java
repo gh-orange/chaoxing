@@ -53,7 +53,7 @@ public class PlayTask implements Runnable, Callable<Boolean> {
                     break;
                 } catch (CheckCodeException e) {
                     if (checkCodeCallBack != null)
-                        checkCodeCallBack.call(e.getUri(), e.getSession());
+                        checkCodeCallBack.call(e.getSession(), e.getUri());
                 }
             checkCodeCallBack.print(this.videoName + "[start]");
             if (!isPassed) {
@@ -83,7 +83,7 @@ public class PlayTask implements Runnable, Callable<Boolean> {
                             break;
                         } catch (CheckCodeException e) {
                             if (checkCodeCallBack != null)
-                                checkCodeCallBack.call(e.getUri(), e.getSession());
+                                checkCodeCallBack.call(e.getSession(), e.getUri());
                         }
                 } while (pause || !isPassed);
                 while (true)
@@ -95,7 +95,7 @@ public class PlayTask implements Runnable, Callable<Boolean> {
                         break;
                     } catch (CheckCodeException e) {
                         if (checkCodeCallBack != null)
-                            checkCodeCallBack.call(e.getUri(), e.getSession());
+                            checkCodeCallBack.call(e.getSession(), e.getUri());
                     }
                 checkCodeCallBack.print(this.videoName + "[finish]");
             } else if (!questions.isEmpty())
@@ -109,17 +109,10 @@ public class PlayTask implements Runnable, Callable<Boolean> {
         }
     }
 
-    private boolean answerQuestion(Map.Entry<QuizConfig, OptionInfo> question) {
-        boolean isPassed;
-        while (true)
-            try {
-                isPassed = CXUtil.answerVideoQuiz(baseUri, question.getKey().getValidationUrl(), question.getKey().getResourceId(), question.getValue().getName());
-                break;
-            } catch (CheckCodeException e) {
-                if (checkCodeCallBack != null)
-                    checkCodeCallBack.call(e.getUri(), e.getSession());
-            }
-        return isPassed;
+    @Override
+    public Boolean call() {
+        run();
+        return true;
     }
 
     public void setStop(boolean stop) {
@@ -138,6 +131,10 @@ public class PlayTask implements Runnable, Callable<Boolean> {
         this.playSecond = playSecond;
     }
 
+    public void setCheckCodeCallBack(CallBack<?> checkCodeCallBack) {
+        this.checkCodeCallBack = checkCodeCallBack;
+    }
+
     private Map<QuizConfig, OptionInfo> getQuestions(TaskInfo taskInfo) {
         List<PlayerQuizInfo> playerQuizInfoList;
         while (true)
@@ -145,7 +142,7 @@ public class PlayTask implements Runnable, Callable<Boolean> {
                 playerQuizInfoList = CXUtil.getVideoQuiz(taskInfo.getDefaults().getInitdataUrl(), taskInfo.getAttachments()[0].getMid());
                 break;
             } catch (CheckCodeException e) {
-                this.checkCodeCallBack.call(e.getUri(), e.getSession());
+                this.checkCodeCallBack.call(e.getSession(), e.getUri());
             }
         Map<QuizConfig, OptionInfo> questions = new HashMap<>();
         for (PlayerQuizInfo playerQuizInfo : playerQuizInfoList)
@@ -160,13 +157,16 @@ public class PlayTask implements Runnable, Callable<Boolean> {
         return questions;
     }
 
-    public void setCheckCodeCallBack(CallBack<?> checkCodeCallBack) {
-        this.checkCodeCallBack = checkCodeCallBack;
-    }
-
-    @Override
-    public Boolean call() {
-        run();
-        return true;
+    private boolean answerQuestion(Map.Entry<QuizConfig, OptionInfo> question) {
+        boolean isPassed;
+        while (true)
+            try {
+                isPassed = CXUtil.answerVideoQuiz(baseUri, question.getKey().getValidationUrl(), question.getKey().getResourceId(), question.getValue().getName());
+                break;
+            } catch (CheckCodeException e) {
+                if (checkCodeCallBack != null)
+                    checkCodeCallBack.call(e.getSession(), e.getUri());
+            }
+        return isPassed;
     }
 }

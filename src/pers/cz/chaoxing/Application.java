@@ -1,26 +1,27 @@
 package pers.cz.chaoxing;
 
 import net.dongliu.requests.exception.RequestsException;
-import pers.cz.chaoxing.callback.impl.CheckCodeCallBack;
+import pers.cz.chaoxing.callback.impl.CustomCheckCodeCallBack;
+import pers.cz.chaoxing.callback.impl.HomeworkCheckCodeCallBack;
+import pers.cz.chaoxing.common.VideoInfo;
 import pers.cz.chaoxing.common.quiz.HomeworkQuizInfo;
-import pers.cz.chaoxing.common.quiz.OptionInfo;
-import pers.cz.chaoxing.common.quiz.QuizConfig;
 import pers.cz.chaoxing.common.task.HomeworkData;
 import pers.cz.chaoxing.common.task.PlayerData;
-import pers.cz.chaoxing.common.VideoInfo;
 import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.exception.CheckCodeException;
 import pers.cz.chaoxing.exception.WrongAccountException;
+import pers.cz.chaoxing.thread.HomeworkTask;
 import pers.cz.chaoxing.thread.LimitedBlockingQueue;
 import pers.cz.chaoxing.thread.PlayTask;
-import pers.cz.chaoxing.util.AnswerUtil;
 import pers.cz.chaoxing.util.CXUtil;
 import pers.cz.chaoxing.util.InfoType;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
-import java.util.*;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Scanner;
 import java.util.concurrent.*;
 
 /**
@@ -47,12 +48,13 @@ import java.util.concurrent.*;
  */
 public class Application {
 
-    public static void main(String[] args) throws WrongAccountException {
-        System.out.println("ChaoxingVideoTool v1.0.1 - powered by orange");
+    public static void main(String[] args) {
+        System.out.println("ChaoxingPlugin v1.1.0 - powered by orange");
         System.out.println("License - GPLv3: This is a free & share software");
         System.out.println("You can checking source code from: https://github.com/cz111000/chaoxing");
         try {
-            CheckCodeCallBack callBack = new CheckCodeCallBack("./checkCode.jpeg");
+            CustomCheckCodeCallBack customCallBack = new CustomCheckCodeCallBack("./checkCode-custom.jpeg");
+            HomeworkCheckCodeCallBack homeworkCallBack = new HomeworkCheckCodeCallBack("./checkCode-homework.jpeg");
             Scanner scanner = new Scanner(System.in);
             String username;
             String password;
@@ -64,9 +66,9 @@ public class Application {
                     System.out.print("Input password:");
                     password = scanner.nextLine();
                     do {
-                        CXUtil.saveCheckCode(callBack.getCheckCodePath());
-                        if (callBack.openFile(callBack.getCheckCodePath()))
-                            System.out.println("CheckCode image path:" + callBack.getCheckCodePath());
+                        CXUtil.saveCheckCode(customCallBack.getCheckCodePath());
+                        if (customCallBack.openFile(customCallBack.getCheckCodePath()))
+                            System.out.println("CheckCode image path:" + customCallBack.getCheckCodePath());
                         System.out.print("Input checkCode:");
                         checkCode = scanner.nextLine();
                     } while (!CXUtil.login(username, password, checkCode));
@@ -80,16 +82,21 @@ public class Application {
                 try {
                     classesUri = CXUtil.getClassesUri();
                 } catch (CheckCodeException e) {
-                    callBack.call(e.getUri(), e.getSession());
+                    customCallBack.call(e.getSession(), e.getUri());
                 }
             String cardUriModel = null;
-            System.out.print("Input size of threadPool(suggest max size is 4):");
-            int threadPoolCount = scanner.nextInt();
             System.out.print("Using fast mode (may got WARNING, suggest you DO NOT USE) [y/n]:");
             boolean hasSleep = !scanner.next().equalsIgnoreCase("y");
-            ExecutorService threadPool = new ThreadPoolExecutor(threadPoolCount, threadPoolCount, 0L, TimeUnit.MILLISECONDS, new LimitedBlockingQueue<>(1));
-            int threadCount = 0;
-            CompletionService<Boolean> completionService = new ExecutorCompletionService<>(threadPool);
+            System.out.print("Input size of playerThreadPool(suggest max size is 4):");
+            int playerThreadPoolCount = scanner.nextInt();
+            ExecutorService playerThreadPool = new ThreadPoolExecutor(playerThreadPoolCount, playerThreadPoolCount, 0L, TimeUnit.MILLISECONDS, new LimitedBlockingQueue<>(1));
+            int playerThreadCount = 0;
+            CompletionService<Boolean> playerCompletionService = new ExecutorCompletionService<>(playerThreadPool);
+            System.out.print("Input size of homeworkThreadPool(suggest max size is 2):");
+            int homeworkThreadPoolCount = scanner.nextInt();
+            ExecutorService homeworkThreadPool = new ThreadPoolExecutor(homeworkThreadPoolCount, homeworkThreadPoolCount, 0L, TimeUnit.MILLISECONDS, new LimitedBlockingQueue<>(2));
+            int homeworkThreadCount = 0;
+            CompletionService<Boolean> homeworkCompletionService = new ExecutorCompletionService<>(homeworkThreadPool);
 //            System.out.println("Press 'p' to pause, press 's' to stop, press any key to continue");
             int clickCount = 0;
             for (String classUri : CXUtil.getClasses(classesUri))
@@ -105,43 +112,39 @@ public class Application {
                         try {
                             if (cardUriModel == null || cardUriModel.isEmpty())
                                 cardUriModel = CXUtil.getCardUriModel(baseUri, taskUris[0], params);
-                            TaskInfo<HomeworkData> homeworkInfo = CXUtil.getTaskInfo(baseUri, cardUriModel, params, InfoType.Homework);
-                            HomeworkQuizInfo homeworkQuizInfo = CXUtil.getHomeworkQuiz(baseUri, homeworkInfo);
-                            if (homeworkQuizInfo.getDatas().length > 0 && !homeworkQuizInfo.getDatas()[0].isAnswered()) {
-                                System.out.println("Homework did not pass:" + homeworkQuizInfo.getWorkRelationId());
-                                AnswerUtil.getAnswer(homeworkQuizInfo.getDatas());
-                                if (CXUtil.answerHomeworkQuiz(baseUri, homeworkQuizInfo)) {
-                                    for (QuizConfig quizConfig : homeworkQuizInfo.getDatas()) {
-                                        System.out.print("answer success:");
-                                        System.out.println(quizConfig.getDescription());
-                                        for (OptionInfo optionInfo : quizConfig.getOptions()) {
-                                            if (optionInfo.isRight())
-                                                System.out.println(optionInfo.getName() + "." + optionInfo.getDescription());
-                                        }
-                                    }
-                                    System.out.println("Homework finish:" + homeworkQuizInfo.getWorkRelationId());
-                                }
-                            }
-                            TaskInfo<PlayerData> taskInfo = CXUtil.getTaskInfo(baseUri, cardUriModel, params, InfoType.Video);
-                            if (taskInfo.getAttachments().length > 0 && !taskInfo.getAttachments()[0].isPassed())
+                            TaskInfo<PlayerData> playerInfo = CXUtil.getTaskInfo(baseUri, cardUriModel, params, InfoType.Video);
+                            if (playerInfo.getAttachments().length > 0 && !playerInfo.getAttachments()[0].isPassed()) {
                                 if (CXUtil.startRecord(baseUri, params)) {
-                                    VideoInfo videoInfo = CXUtil.getVideoInfo(baseUri, "/ananas/status", taskInfo.getAttachments()[0].getObjectId(), taskInfo.getDefaults().getFid());
+                                    VideoInfo videoInfo = CXUtil.getVideoInfo(baseUri, "/ananas/status", playerInfo.getAttachments()[0].getObjectId(), playerInfo.getDefaults().getFid());
                                     String videoName = videoInfo.getFilename();
                                     try {
                                         videoName = URLDecoder.decode(videoName, "utf-8");
                                     } catch (UnsupportedEncodingException ignored) {
                                     }
                                     System.out.println("Video did not pass:" + videoName);
-                                    char[] charArray = taskInfo.getAttachments()[0].getType().toCharArray();
+                                    char[] charArray = playerInfo.getAttachments()[0].getType().toCharArray();
                                     charArray[0] -= 32;
-                                    taskInfo.getAttachments()[0].setType(String.valueOf(charArray));
-                                    PlayTask playTask = new PlayTask(taskInfo, videoInfo, baseUri);
-                                    playTask.setCheckCodeCallBack(callBack);
+                                    playerInfo.getAttachments()[0].setType(String.valueOf(charArray));
+                                    PlayTask playTask = new PlayTask(playerInfo, videoInfo, baseUri);
+                                    playTask.setCheckCodeCallBack(customCallBack);
                                     playTask.setHasSleep(hasSleep);
-                                    completionService.submit(playTask);
-                                    threadCount++;
+                                    playerCompletionService.submit(playTask);
+                                    playerThreadCount++;
                                     System.out.println("Added playTask to ThreadPool:" + videoName);
                                 }
+                            }
+                            TaskInfo<HomeworkData> homeworkInfo = CXUtil.getTaskInfo(baseUri, cardUriModel, params, InfoType.Homework);
+                            HomeworkQuizInfo homeworkQuizInfo = CXUtil.getHomeworkQuiz(baseUri, homeworkInfo);
+                            if (homeworkQuizInfo.getDatas().length > 0 && !homeworkQuizInfo.getDatas()[0].isAnswered()) {
+                                String homeworkName = homeworkInfo.getAttachments()[0].getProperty().getTitle();
+                                System.out.println("Homework did not pass:" + homeworkName);
+                                HomeworkTask homeworkTask = new HomeworkTask(homeworkInfo, homeworkQuizInfo, baseUri);
+                                homeworkTask.setCheckCodeCallBack(homeworkCallBack);
+                                homeworkTask.setHasSleep(hasSleep);
+                                homeworkCompletionService.submit(homeworkTask);
+                                homeworkThreadCount++;
+                                System.out.println("Added homeworkTask to ThreadPool:" + homeworkName);
+                            }
                             /*
                             imitate human click
                              */
@@ -149,17 +152,24 @@ public class Application {
                                 Thread.sleep(30 * 1000);
                             break;
                         } catch (CheckCodeException e) {
-                            callBack.call(e.getUri(), e.getSession());
+                            customCallBack.call(e.getSession(), e.getUri());
                         }
                 }
             try {
-                for (int i = 0; i < threadCount; i++)
-                    completionService.take().get();
+                for (int i = 0; i < playerThreadCount; i++)
+                    playerCompletionService.take().get();
             } catch (Exception ignored) {
             }
-            threadPool.shutdown();
+            playerThreadPool.shutdown();
+            System.out.println("Finished playTask count:" + playerThreadCount);
+            try {
+                for (int i = 0; i < homeworkThreadCount; i++)
+                    homeworkCompletionService.take().get();
+            } catch (Exception ignored) {
+            }
+            homeworkThreadPool.shutdown();
+            System.out.println("Finished homeworkTask count:" + homeworkThreadCount);
             scanner.close();
-            System.out.println("Finished playTask count:" + threadCount);
         } catch (RequestsException e) {
             System.out.println("Net connection error");
         } catch (Exception ignored) {

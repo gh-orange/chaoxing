@@ -3,12 +3,12 @@ package pers.cz.chaoxing.exception;
 import net.dongliu.requests.Session;
 
 public class CheckCodeException extends Throwable {
-    private String uri;
     private Session session;
+    private String uri;
 
-    public CheckCodeException(String uri, Session session) {
-        this.uri = uri;
+    public CheckCodeException(Session session, String uri) {
         this.session = session;
+        this.uri = uri;
     }
 
     public String getUri() {
