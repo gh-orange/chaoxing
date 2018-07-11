@@ -1,14 +1,14 @@
-package pers.cz.chaoxing.common;
+package pers.cz.chaoxing.common.quiz;
 
-public class QuestionInfo {
-    private QuestionConfig[] datas;
+public class PlayerQuizInfo {
+    private QuizConfig[] datas;
     private String style;
 
-    public QuestionConfig[] getDatas() {
+    public QuizConfig[] getDatas() {
         return datas;
     }
 
-    public void setDatas(QuestionConfig[] datas) {
+    public void setDatas(QuizConfig[] datas) {
         this.datas = datas;
     }
 

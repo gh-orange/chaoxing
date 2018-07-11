@@ -1,7 +1,12 @@
 package pers.cz.chaoxing.thread;
 
 import pers.cz.chaoxing.callback.CallBack;
-import pers.cz.chaoxing.common.*;
+import pers.cz.chaoxing.common.quiz.OptionInfo;
+import pers.cz.chaoxing.common.quiz.QuizConfig;
+import pers.cz.chaoxing.common.task.PlayerData;
+import pers.cz.chaoxing.common.quiz.PlayerQuizInfo;
+import pers.cz.chaoxing.common.VideoInfo;
+import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.exception.CheckCodeException;
 import pers.cz.chaoxing.util.CXUtil;
 
@@ -11,10 +16,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
 
 public class PlayTask implements Runnable, Callable<Boolean> {
-    private final PlayerInfo playerInfo;
+    private final TaskInfo<PlayerData> taskInfo;
     private final VideoInfo videoInfo;
     private final String baseUri;
     private String videoName;
@@ -24,11 +28,11 @@ public class PlayTask implements Runnable, Callable<Boolean> {
     private boolean hasSleep;
     private CallBack<?> checkCodeCallBack;
 
-    public PlayTask(PlayerInfo playerInfo, VideoInfo videoInfo, String baseUri) {
-        this.playerInfo = playerInfo;
+    public PlayTask(TaskInfo<PlayerData> taskInfo, VideoInfo videoInfo, String baseUri) {
+        this.taskInfo = taskInfo;
         this.videoInfo = videoInfo;
         this.baseUri = baseUri;
-        this.playSecond = (int) (this.playerInfo.getAttachments()[0].getHeadOffset() / 1000);
+        this.playSecond = (int) (this.taskInfo.getAttachments()[0].getHeadOffset() / 1000);
         this.stop = this.pause = false;
         this.hasSleep = true;
         try {
@@ -42,32 +46,32 @@ public class PlayTask implements Runnable, Callable<Boolean> {
     public void run() {
         try {
             boolean isPassed;
-            Map<QuestionConfig, OptionInfo> questions = getQuestions(playerInfo);
+            Map<QuizConfig, OptionInfo> questions = getQuestions(taskInfo);
             while (true)
                 try {
-                    isPassed = CXUtil.onStart(playerInfo, videoInfo);
+                    isPassed = CXUtil.onStart(taskInfo, videoInfo);
                     break;
                 } catch (CheckCodeException e) {
                     if (checkCodeCallBack != null)
-                        checkCodeCallBack.call(e.getUri(), e.getSession());
+                        checkCodeCallBack.call(e.getSession(), e.getUri());
                 }
             checkCodeCallBack.print(this.videoName + "[start]");
             if (!isPassed) {
                 do {
                     if (hasSleep)
-                        for (int i = 0; !stop && i < playerInfo.getDefaults().getReportTimeInterval(); i++)
+                        for (int i = 0; !stop && i < taskInfo.getDefaults().getReportTimeInterval(); i++)
                             Thread.sleep(1000);
                     if (stop)
                         break;
                     if (!pause) {
                         checkCodeCallBack.print(this.videoName + "[" + (int) ((float) this.playSecond / this.videoInfo.getDuration() * 100) + "%]");
-                        playSecond += playerInfo.getDefaults().getReportTimeInterval();
+                        playSecond += taskInfo.getDefaults().getReportTimeInterval();
                     }
                     if (playSecond > videoInfo.getDuration()) {
                         playSecond = videoInfo.getDuration();
                         break;
                     }
-                    for (Map.Entry<QuestionConfig, OptionInfo> question : questions.entrySet())
+                    for (Map.Entry<QuizConfig, OptionInfo> question : questions.entrySet())
                         if (playSecond >= question.getKey().getStartTime())
                             if (answerQuestion(question)) {
                                 questions.remove(question.getKey());
@@ -75,27 +79,27 @@ public class PlayTask implements Runnable, Callable<Boolean> {
                             }
                     while (true)
                         try {
-                            isPassed = CXUtil.onPlayProgress(playerInfo, videoInfo, playSecond);
+                            isPassed = CXUtil.onPlayProgress(taskInfo, videoInfo, playSecond);
                             break;
                         } catch (CheckCodeException e) {
                             if (checkCodeCallBack != null)
-                                checkCodeCallBack.call(e.getUri(), e.getSession());
+                                checkCodeCallBack.call(e.getSession(), e.getUri());
                         }
                 } while (pause || !isPassed);
                 while (true)
                     try {
                         if (stop)
-                            CXUtil.onPause(playerInfo, videoInfo, playSecond);
+                            CXUtil.onPause(taskInfo, videoInfo, playSecond);
                         else
-                            CXUtil.onEnd(playerInfo, videoInfo);
+                            CXUtil.onEnd(taskInfo, videoInfo);
                         break;
                     } catch (CheckCodeException e) {
                         if (checkCodeCallBack != null)
-                            checkCodeCallBack.call(e.getUri(), e.getSession());
+                            checkCodeCallBack.call(e.getSession(), e.getUri());
                     }
                 checkCodeCallBack.print(this.videoName + "[finish]");
             } else if (!questions.isEmpty())
-                for (Map.Entry<QuestionConfig, OptionInfo> question : questions.entrySet())
+                for (Map.Entry<QuizConfig, OptionInfo> question : questions.entrySet())
                     if (answerQuestion(question)) {
                         questions.remove(question.getKey());
                         System.out.println("answer success:" + question.getKey().getDescription() + "=" + question.getValue().getDescription());
@@ -105,17 +109,10 @@ public class PlayTask implements Runnable, Callable<Boolean> {
         }
     }
 
-    private boolean answerQuestion(Map.Entry<QuestionConfig, OptionInfo> question) {
-        boolean isPassed;
-        while (true)
-            try {
-                isPassed = CXUtil.answerQuestion(baseUri, question.getKey().getValidationUrl(), question.getKey().getResourceId(), question.getValue().getName());
-                break;
-            } catch (CheckCodeException e) {
-                if (checkCodeCallBack != null)
-                    checkCodeCallBack.call(e.getUri(), e.getSession());
-            }
-        return isPassed;
+    @Override
+    public Boolean call() {
+        run();
+        return true;
     }
 
     public void setStop(boolean stop) {
@@ -134,35 +131,42 @@ public class PlayTask implements Runnable, Callable<Boolean> {
         this.playSecond = playSecond;
     }
 
-    private Map<QuestionConfig, OptionInfo> getQuestions(PlayerInfo playerInfo) {
-        List<QuestionInfo> questionInfoList;
+    public void setCheckCodeCallBack(CallBack<?> checkCodeCallBack) {
+        this.checkCodeCallBack = checkCodeCallBack;
+    }
+
+    private Map<QuizConfig, OptionInfo> getQuestions(TaskInfo taskInfo) {
+        List<PlayerQuizInfo> playerQuizInfoList;
         while (true)
             try {
-                questionInfoList = CXUtil.getQuestions(playerInfo.getDefaults().getInitdataUrl(), playerInfo.getAttachments()[0].getMid());
+                playerQuizInfoList = CXUtil.getVideoQuiz(taskInfo.getDefaults().getInitdataUrl(), taskInfo.getAttachments()[0].getMid());
                 break;
             } catch (CheckCodeException e) {
-                this.checkCodeCallBack.call(e.getUri(), e.getSession());
+                this.checkCodeCallBack.call(e.getSession(), e.getUri());
             }
-        Map<QuestionConfig, OptionInfo> questions = new HashMap<>();
-        for (QuestionInfo questionInfo : questionInfoList)
-            if (questionInfo.getStyle().equals("QUIZ"))
-                for (QuestionConfig questionConfig : questionInfo.getDatas())
-                    if (!questionConfig.isAnswered())
-                        for (OptionInfo optionInfo : questionConfig.getOptions())
+        Map<QuizConfig, OptionInfo> questions = new HashMap<>();
+        for (PlayerQuizInfo playerQuizInfo : playerQuizInfoList)
+            if (playerQuizInfo.getStyle().equals("QUIZ"))
+                for (QuizConfig quizConfig : playerQuizInfo.getDatas())
+                    if (!quizConfig.isAnswered())
+                        for (OptionInfo optionInfo : quizConfig.getOptions())
                             if (optionInfo.isRight()) {
-                                questions.put(questionConfig, optionInfo);
+                                questions.put(quizConfig, optionInfo);
                                 break;
                             }
         return questions;
     }
 
-    public void setCheckCodeCallBack(CallBack<?> checkCodeCallBack) {
-        this.checkCodeCallBack = checkCodeCallBack;
-    }
-
-    @Override
-    public Boolean call() {
-        run();
-        return true;
+    private boolean answerQuestion(Map.Entry<QuizConfig, OptionInfo> question) {
+        boolean isPassed;
+        while (true)
+            try {
+                isPassed = CXUtil.answerVideoQuiz(baseUri, question.getKey().getValidationUrl(), question.getKey().getResourceId(), question.getValue().getName());
+                break;
+            } catch (CheckCodeException e) {
+                if (checkCodeCallBack != null)
+                    checkCodeCallBack.call(e.getSession(), e.getUri());
+            }
+        return isPassed;
     }
 }
