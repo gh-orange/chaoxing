@@ -47,8 +47,8 @@ public class CXUtil {
 
     private static Session session = Requests.session();
 
-    public static Proxy proxy = Proxies.httpProxy("10.14.36.103", 8080);
-//    public static Proxy proxy = null;
+    //    public static Proxy proxy = Proxies.httpProxy("10.14.36.103", 8080);
+    public static Proxy proxy = null;
 
     public static boolean login(String username, String password, String checkCode) throws WrongAccountException {
         String indexUri = session.get("http://dlnu.fy.chaoxing.com/topjs?index=1").proxy(proxy).send().readToText();
