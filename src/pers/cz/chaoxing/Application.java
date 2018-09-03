@@ -44,12 +44,12 @@ import java.util.concurrent.*;
 
 /**
  * @author 橙子
- * @version 1.0.1
+ * @version 1.1.1
  */
 public class Application {
 
     public static void main(String[] args) {
-        System.out.println("ChaoxingPlugin v1.1.0 - powered by orange");
+        System.out.println("ChaoxingPlugin v1.1.1 - powered by orange");
         System.out.println("License - GPLv3: This is a free & share software");
         System.out.println("You can checking source code from: https://github.com/cz111000/chaoxing");
         try {
@@ -87,16 +87,16 @@ public class Application {
             String cardUriModel = null;
             System.out.print("Using fast mode (may got WARNING, suggest you DO NOT USE) [y/n]:");
             boolean hasSleep = !scanner.next().equalsIgnoreCase("y");
+            System.out.print("Checking all answers to auto-complete homework (may got lower mark, store answers if not) [y/n]:");
+            boolean autoComplete = scanner.next().equalsIgnoreCase("y");
             System.out.print("Input size of playerThreadPool(suggest max size is 4):");
             int playerThreadPoolCount = scanner.nextInt();
             ExecutorService playerThreadPool = new ThreadPoolExecutor(playerThreadPoolCount, playerThreadPoolCount, 0L, TimeUnit.MILLISECONDS, new LimitedBlockingQueue<>(1));
             int playerThreadCount = 0;
             CompletionService<Boolean> playerCompletionService = new ExecutorCompletionService<>(playerThreadPool);
-            System.out.print("Checking all answers to auto-complete homework (may got lower mark, store answers if not) [y/n]:");
-            boolean autoComplete = scanner.next().equalsIgnoreCase("y");
             System.out.print("Input size of homeworkThreadPool(suggest max size is 2):");
             int homeworkThreadPoolCount = scanner.nextInt();
-            ExecutorService homeworkThreadPool = new ThreadPoolExecutor(homeworkThreadPoolCount, homeworkThreadPoolCount, 0L, TimeUnit.MILLISECONDS, new LimitedBlockingQueue<>(2));
+            ExecutorService homeworkThreadPool = new ThreadPoolExecutor(homeworkThreadPoolCount, homeworkThreadPoolCount, 0L, TimeUnit.MILLISECONDS, new LimitedBlockingQueue<>(1));
             int homeworkThreadCount = 0;
             CompletionService<Boolean> homeworkCompletionService = new ExecutorCompletionService<>(homeworkThreadPool);
 //            System.out.println("Press 'p' to pause, press 's' to stop, press any key to continue");
@@ -176,6 +176,7 @@ public class Application {
         } catch (RequestsException e) {
             System.out.println("Net connection error");
         } catch (Exception ignored) {
+            ignored.printStackTrace();
         }
     }
 

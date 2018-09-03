@@ -55,7 +55,7 @@ public class PlayTask implements Runnable, Callable<Boolean> {
                     if (checkCodeCallBack != null)
                         checkCodeCallBack.call(e.getSession(), e.getUri());
                 }
-            checkCodeCallBack.print(this.videoName + "[start]");
+            checkCodeCallBack.print(this.videoName + "[player start]");
             if (!isPassed) {
                 do {
                     if (hasSleep)
@@ -64,7 +64,7 @@ public class PlayTask implements Runnable, Callable<Boolean> {
                     if (stop)
                         break;
                     if (!pause) {
-                        checkCodeCallBack.print(this.videoName + "[" + (int) ((float) this.playSecond / this.videoInfo.getDuration() * 100) + "%]");
+                        checkCodeCallBack.print(this.videoName + "[player " + (int) ((float) this.playSecond / this.videoInfo.getDuration() * 100) + "%]");
                         playSecond += taskInfo.getDefaults().getReportTimeInterval();
                     }
                     if (playSecond > videoInfo.getDuration()) {
@@ -97,7 +97,7 @@ public class PlayTask implements Runnable, Callable<Boolean> {
                         if (checkCodeCallBack != null)
                             checkCodeCallBack.call(e.getSession(), e.getUri());
                     }
-                checkCodeCallBack.print(this.videoName + "[finish]");
+                checkCodeCallBack.print(this.videoName + "[player finish]");
             } else if (!questions.isEmpty())
                 for (Map.Entry<QuizConfig, OptionInfo> question : questions.entrySet())
                     if (answerQuestion(question)) {

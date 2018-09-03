@@ -2,6 +2,7 @@ package pers.cz.chaoxing.util;
 
 import com.alibaba.fastjson.*;
 import net.dongliu.requests.*;
+import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -20,6 +21,10 @@ import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.exception.CheckCodeException;
 import pers.cz.chaoxing.exception.WrongAccountException;
 
+import javax.script.Invocable;
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
+import javax.script.ScriptException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Type;
 import java.math.BigInteger;
@@ -27,10 +32,7 @@ import java.net.Proxy;
 import java.net.URLEncoder;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.HashMap;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -54,8 +56,8 @@ public class CXUtil {
         String indexUri = session.get("http://dlnu.fy.chaoxing.com/topjs?index=1").proxy(proxy).send().readToText();
         String beginStr = "location.href = \\\"";
         String endStr = "\\\"";
-        int begin = indexUri.indexOf(beginStr) + beginStr.length();
-        Document document = Jsoup.parse(session.get(indexUri.substring(begin, indexUri.indexOf(endStr, begin))).proxy(proxy).send().readToText());
+        int beginIndex = indexUri.indexOf(beginStr) + beginStr.length();
+        Document document = Jsoup.parse(session.get(indexUri.substring(beginIndex, indexUri.indexOf(endStr, beginIndex))).proxy(proxy).send().readToText());
         Map<String, String> postBody = new HashMap<>();
         postBody.put("refer_0x001", document.getElementById("refer_0x001").val());
         postBody.put("pid", document.getElementById("pid").val());
@@ -675,49 +677,46 @@ public class CXUtil {
         } catch (UnsupportedEncodingException e) {
             return false;
         }
-        Document document = Jsoup.parse(Requests.get("https://m.3gmfw.cn/so/" + description + "/").proxy(proxy).send().charset("GBK").readToText());
-
-        //todo baidu yunjiasu
-
-/*
-        String jschl_vc = StringUtil.textCutCenter(temp, "jschl_vc\"value=\"", "\"");
-        String pass = StringUtil.textCutCenter(temp, "pass\"value=\"", "\"");
-
-        String funcCode = StringUtil.textCutCenter(html, "setTimeout(function(){", "f.submit();");
-
-        funcCode = funcCode.replace("a.value", "a");
-        funcCode = funcCode.replace("  ", " ");
-        String[] tabs = funcCode.split("\n");
-        funcCode = tabs[1];
-        funcCode += "\r\nt=\"" + baseURL + "\";";
-        funcCode += "\r\nr = t.match(/https?:\\/\\//)[0];";
-        funcCode += "\r\nt = t.substr(r.length);";
-        funcCode += "\r\nt = t.substr(0, t.length - 1);";
-        funcCode += tabs[8];
-        funcCode += "\r\n return a;";
-
-        funcCode = "function jschl_answer(){\r\n" + funcCode + "\r\n}";
-
-        ScriptEngineManager manager = new ScriptEngineManager();
-        ScriptEngine engine = manager.getEngineByName("js");
-        engine.eval(funcCode);
-        Invocable invocable = (Invocable) engine;
-        Double jschl_answer = (Double) invocable.invokeFunction("jschl_answer");
-        url = baseURL + "/cdn-cgi/l/chk_jschl?jschl_vc=" + jschl_vc + "&pass=" + pass + "&jschl_answer=" + jschl_answer.intValue();
-        http.config.allowRedirects(false);
-        System.out.println(url);
-        Thread.sleep(3800l);
-        http.config.setGzip(true);
-        entity = http.Get(url);
-        cookie = entity.getCookie();
-        if (!cookie.contains("cf_clearance")) {
-            return null;
+        RawResponse response = session.get("https://m.3gmfw.cn/so/" + description + "/").proxy(proxy).send();
+        Document document = Jsoup.parse(response.charset("GBK").readToText());
+        try {
+            FormElement form = document.select("form#challenge-form").forms().get(0);
+            while (null != form) {
+                form.setBaseUri("https://m.3gmfw.cn/");
+                String script = document.select("script").html();
+                String beginStr = "setTimeout(function(){";
+                String endStr = "f.submit();";
+                int beginIndex = script.indexOf(beginStr) + beginStr.length();
+                script = script.substring(beginIndex, script.indexOf(endStr, beginIndex));
+                script = script.replaceAll("a\\.value", "var a");
+                String[] strings = script.split("\n");
+                script = "function jschl_answer(){" +
+                        strings[1] +
+                        "t = \"" + form.baseUri() + "\";" +
+                        "r = t.match(/https?:\\/\\//)[0];" +
+                        "t = t.substr(r.length);" +
+                        "t = t.substr(0, t.length - 1);" +
+                        strings[8] +
+                        ";return a;" +
+                        "}";
+                ScriptEngineManager manager = new ScriptEngineManager();
+                ScriptEngine engine = manager.getEngineByName("Nashorn");
+                engine.eval(script);
+                double answer = (double) ((Invocable) engine).invokeFunction("jschl_answer");
+                Map<String, String> params = new HashMap<>();
+                params.put("jschl_answer", String.valueOf(answer));
+                params.put("pass", form.select("input[name=pass]").val());
+                params.put("jschl_vc", form.select("input[name=jschl_vc]").val());
+                Thread.sleep(4 * 1000);
+                session.get(form.absUrl("action")).params(params).proxy(proxy).send();
+                response = session.get("https://m.3gmfw.cn/so/" + description + "/").proxy(proxy).send();
+                document = Jsoup.parse(response.charset("GBK").readToText());
+                form = document.select("form#challenge-form").forms().get(0);
+            }
+        } catch (Exception ignored) {
         }
-        return entity;
-*/
-
         Element ul = document.selectFirst("ul.article-list");
-        if (ul == null)
+        if (null == ul)
             return false;
         Element li = ul.selectFirst("li");
         document = Jsoup.parse(Requests.get("https://m.3gmfw.cn/" + li.selectFirst("a").attr("href")).proxy(proxy).send().charset("GBK").readToText());
@@ -735,14 +734,20 @@ public class CXUtil {
                         rightAnswers = textNode.text();
         if (rightAnswers.contains("答案："))
             rightAnswers = rightAnswers.substring(rightAnswers.indexOf("答案：") + "答案：".length()).trim();
+        if (rightAnswers.equalsIgnoreCase("✔") || rightAnswers.equalsIgnoreCase("T") || rightAnswers.equalsIgnoreCase("TRUE") || rightAnswers.equalsIgnoreCase("对"))
+            rightAnswers = "true";
+        if (rightAnswers.equalsIgnoreCase("X") || rightAnswers.equalsIgnoreCase("F") || rightAnswers.equalsIgnoreCase("FALSE") || rightAnswers.equalsIgnoreCase("错"))
+            rightAnswers = "false";
+        boolean answered = false;
         for (char c : rightAnswers.toCharArray())
             for (OptionInfo optionInfo : quizConfig.getOptions()) {
-                if (answers.containsKey(Character.toString(c)) && answers.get(Character.toString(c)).contains(optionInfo.getDescription())) {
+                if (answers.containsKey(Character.toString(c)) && answers.get(Character.toString(c)).contains(optionInfo.getDescription()) || optionInfo.getName().equals(rightAnswers)) {
                     optionInfo.setRight(true);
+                    answered = true;
                     if (!quizConfig.getQuestionType().equals("1"))
-                        break;
+                        return answered;
                 }
             }
-        return true;
+        return answered;
     }
 }
