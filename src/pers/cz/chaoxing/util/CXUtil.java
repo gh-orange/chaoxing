@@ -468,6 +468,11 @@ public class CXUtil {
         return homeworkQuizInfo;
     }
 
+    public static boolean storeHomeworkQuiz(String baseUri, HomeworkQuizInfo homeworkQuizInfo) throws WrongAccountException, CheckCodeException {
+        homeworkQuizInfo.setPyFlag("1");
+        return answerHomeworkQuiz(baseUri, homeworkQuizInfo);
+    }
+
     /**
      * JavaScript code:
      * function encrypt(h, g) {
@@ -571,6 +576,19 @@ public class CXUtil {
                 default:
                     return false;
             }
+        int version = 1;
+        Matcher matcher = Pattern.compile("version=(\\d)").matcher(homeworkQuizInfo.getDatas()[0].getValidationUrl());
+        if (matcher.find())
+            version += Integer.valueOf(matcher.group(1));
+        params.clear();
+        params.put("ua", "pc");
+        params.put("formType", "post");
+        params.put("saveStatus", "1");
+        params.put("version", String.valueOf(version));
+        /*
+        skip when store
+        */
+//        if (!homeworkQuizInfo.getPyFlag().equals("1")) {
         int pageWidth = 898;
         int pageHeight = 687;
         String value = "(" + pageWidth + "|" + pageHeight + ")";
@@ -600,19 +618,11 @@ public class CXUtil {
             n = (multiplier * n + uwIdLength) % Integer.MAX_VALUE;
         }
         pos.append(String.format("%08x", randomMillion));
-        int version = 1;
-        Matcher matcher = Pattern.compile("version=(\\d)").matcher(homeworkQuizInfo.getDatas()[0].getValidationUrl());
-        if (matcher.find())
-            version += Integer.valueOf(matcher.group(1));
-        params.clear();
-        params.put("ua", "pc");
-        params.put("formType", "post");
-        params.put("saveStatus", "1");
-        params.put("version", String.valueOf(version));
         params.put("pos", pos.toString());
         params.put("rd", String.valueOf(random));
         params.put("value", value);
         params.put("wid", homeworkQuizInfo.getWorkRelationId());
+//        }
         Map<String, String> body = new IdentityHashMap<>();
         body.put("pyFlag", homeworkQuizInfo.getPyFlag());
         body.put("courseId", homeworkQuizInfo.getCourseId());
@@ -666,6 +676,46 @@ public class CXUtil {
             return false;
         }
         Document document = Jsoup.parse(Requests.get("https://m.3gmfw.cn/so/" + description + "/").proxy(proxy).send().charset("GBK").readToText());
+
+        //todo baidu yunjiasu
+
+/*
+        String jschl_vc = StringUtil.textCutCenter(temp, "jschl_vc\"value=\"", "\"");
+        String pass = StringUtil.textCutCenter(temp, "pass\"value=\"", "\"");
+
+        String funcCode = StringUtil.textCutCenter(html, "setTimeout(function(){", "f.submit();");
+
+        funcCode = funcCode.replace("a.value", "a");
+        funcCode = funcCode.replace("  ", " ");
+        String[] tabs = funcCode.split("\n");
+        funcCode = tabs[1];
+        funcCode += "\r\nt=\"" + baseURL + "\";";
+        funcCode += "\r\nr = t.match(/https?:\\/\\//)[0];";
+        funcCode += "\r\nt = t.substr(r.length);";
+        funcCode += "\r\nt = t.substr(0, t.length - 1);";
+        funcCode += tabs[8];
+        funcCode += "\r\n return a;";
+
+        funcCode = "function jschl_answer(){\r\n" + funcCode + "\r\n}";
+
+        ScriptEngineManager manager = new ScriptEngineManager();
+        ScriptEngine engine = manager.getEngineByName("js");
+        engine.eval(funcCode);
+        Invocable invocable = (Invocable) engine;
+        Double jschl_answer = (Double) invocable.invokeFunction("jschl_answer");
+        url = baseURL + "/cdn-cgi/l/chk_jschl?jschl_vc=" + jschl_vc + "&pass=" + pass + "&jschl_answer=" + jschl_answer.intValue();
+        http.config.allowRedirects(false);
+        System.out.println(url);
+        Thread.sleep(3800l);
+        http.config.setGzip(true);
+        entity = http.Get(url);
+        cookie = entity.getCookie();
+        if (!cookie.contains("cf_clearance")) {
+            return null;
+        }
+        return entity;
+*/
+
         Element ul = document.selectFirst("ul.article-list");
         if (ul == null)
             return false;

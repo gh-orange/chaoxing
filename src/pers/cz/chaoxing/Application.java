@@ -92,6 +92,8 @@ public class Application {
             ExecutorService playerThreadPool = new ThreadPoolExecutor(playerThreadPoolCount, playerThreadPoolCount, 0L, TimeUnit.MILLISECONDS, new LimitedBlockingQueue<>(1));
             int playerThreadCount = 0;
             CompletionService<Boolean> playerCompletionService = new ExecutorCompletionService<>(playerThreadPool);
+            System.out.print("Checking all answers to auto-complete homework (may got lower mark, store answers if not) [y/n]:");
+            boolean autoComplete = scanner.next().equalsIgnoreCase("y");
             System.out.print("Input size of homeworkThreadPool(suggest max size is 2):");
             int homeworkThreadPoolCount = scanner.nextInt();
             ExecutorService homeworkThreadPool = new ThreadPoolExecutor(homeworkThreadPoolCount, homeworkThreadPoolCount, 0L, TimeUnit.MILLISECONDS, new LimitedBlockingQueue<>(2));
@@ -141,6 +143,7 @@ public class Application {
                                 HomeworkTask homeworkTask = new HomeworkTask(homeworkInfo, homeworkQuizInfo, baseUri);
                                 homeworkTask.setCheckCodeCallBack(homeworkCallBack);
                                 homeworkTask.setHasSleep(hasSleep);
+                                homeworkTask.setAutoComplete(autoComplete);
                                 homeworkCompletionService.submit(homeworkTask);
                                 homeworkThreadCount++;
                                 System.out.println("Added homeworkTask to ThreadPool:" + homeworkName);
