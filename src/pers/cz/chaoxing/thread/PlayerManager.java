@@ -21,6 +21,7 @@ import java.util.concurrent.*;
  * @create 2018/9/4
  */
 public class PlayerManager implements Runnable {
+    private Semaphore semaphore;
     private int playerThreadPoolCount;
     private ExecutorService playerThreadPool;
     private CompletionService<Boolean> playerCompletionService;
@@ -46,6 +47,8 @@ public class PlayerManager implements Runnable {
         if (this.playerThreadPoolCount > 0)
             try {
                 for (Map<String, String> params : paramsList) {
+                    if (null != semaphore)
+                        semaphore.acquire();
                     while (true)
                         try {
                             TaskInfo<PlayerData> playerInfo = CXUtil.getTaskInfo(baseUri, cardUriModel, params, InfoType.Video);
@@ -64,11 +67,14 @@ public class PlayerManager implements Runnable {
                                     PlayTask playTask = new PlayTask(playerInfo, videoInfo, baseUri);
                                     playTask.setCheckCodeCallBack(customCallBack);
                                     playTask.setHasSleep(hasSleep);
+                                    playTask.setSemaphore(semaphore);
                                     playerCompletionService.submit(playTask);
                                     playerThreadCount++;
                                     System.out.println("Added playTask to ThreadPool:" + videoName);
-                                }
-                            }
+                                } else if (null != semaphore)
+                                    semaphore.release();
+                            } else if (null != semaphore)
+                                semaphore.release();
                         /*
                         imitate human click
                         */
@@ -81,12 +87,21 @@ public class PlayerManager implements Runnable {
                 }
             } catch (RequestsException e) {
                 System.out.println("Net connection error");
+                if (null != semaphore)
+                    semaphore.release();
             } catch (Exception ignored) {
+                if (null != semaphore)
+                    semaphore.release();
             }
+        System.out.println("Player group finish");
     }
 
     public void setParamsList(List<Map<String, String>> paramsList) {
         this.paramsList = paramsList;
+    }
+
+    public void setSemaphore(Semaphore semaphore) {
+        this.semaphore = semaphore;
     }
 
     public void setHasSleep(boolean hasSleep) {

@@ -16,8 +16,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.Semaphore;
 
 public class PlayTask implements Runnable, Callable<Boolean> {
+    private Semaphore semaphore;
     private final TaskInfo<PlayerData> taskInfo;
     private final VideoInfo videoInfo;
     private final String baseUri;
@@ -107,6 +109,8 @@ public class PlayTask implements Runnable, Callable<Boolean> {
         } catch (InterruptedException e) {
             System.out.println(e.getMessage());
         }
+        if (null != semaphore)
+            semaphore.release();
     }
 
     @Override
@@ -121,6 +125,10 @@ public class PlayTask implements Runnable, Callable<Boolean> {
 
     public void setPause(boolean pause) {
         this.pause = pause;
+    }
+
+    public void setSemaphore(Semaphore semaphore) {
+        this.semaphore = semaphore;
     }
 
     public void setHasSleep(boolean hasSleep) {

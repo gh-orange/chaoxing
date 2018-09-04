@@ -20,6 +20,7 @@ import java.util.concurrent.*;
  * @create 2018/9/4
  */
 public class HomeworkManager implements Runnable {
+    private Semaphore semaphore;
     private int homeworkThreadPoolCount;
     private ExecutorService homeworkThreadPool;
     private CompletionService<Boolean> homeworkCompletionService;
@@ -46,6 +47,8 @@ public class HomeworkManager implements Runnable {
         if (this.homeworkThreadPoolCount > 0)
             try {
                 for (Map<String, String> params : paramsList) {
+                    if (null != semaphore)
+                        semaphore.acquire();
                     while (true)
                         try {
                             TaskInfo<HomeworkData> homeworkInfo = CXUtil.getTaskInfo(baseUri, cardUriModel, params, InfoType.Homework);
@@ -56,11 +59,13 @@ public class HomeworkManager implements Runnable {
                                 HomeworkTask homeworkTask = new HomeworkTask(homeworkInfo, homeworkQuizInfo, baseUri);
                                 homeworkTask.setCheckCodeCallBack(homeworkCallBack);
                                 homeworkTask.setHasSleep(hasSleep);
+                                homeworkTask.setSemaphore(semaphore);
                                 homeworkTask.setAutoComplete(autoComplete);
                                 homeworkCompletionService.submit(homeworkTask);
                                 homeworkThreadCount++;
                                 System.out.println("Added homeworkTask to ThreadPool:" + homeworkName);
-                            }
+                            } else if (null != semaphore)
+                                semaphore.release();
                             break;
                         } catch (CheckCodeException e) {
                             customCallBack.call(e.getSession(), e.getUri());
@@ -68,8 +73,13 @@ public class HomeworkManager implements Runnable {
                 }
             } catch (RequestsException e) {
                 System.out.println("Net connection error");
+                if (null != semaphore)
+                    semaphore.release();
             } catch (Exception ignored) {
+                if (null != semaphore)
+                    semaphore.release();
             }
+        System.out.println("Homework group finish");
     }
 
     public void setParamsList(List<Map<String, String>> paramsList) {
@@ -82,6 +92,10 @@ public class HomeworkManager implements Runnable {
 
     public void setCardUriModel(String cardUriModel) {
         this.cardUriModel = cardUriModel;
+    }
+
+    public void setSemaphore(Semaphore semaphore) {
+        this.semaphore = semaphore;
     }
 
     public void setHasSleep(boolean hasSleep) {

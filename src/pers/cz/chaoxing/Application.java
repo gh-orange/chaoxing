@@ -9,6 +9,7 @@ import pers.cz.chaoxing.thread.task.PlayTask;
 import pers.cz.chaoxing.util.CXUtil;
 
 import java.util.*;
+import java.util.concurrent.Semaphore;
 
 /**
  * ChaoxingPlugin - A hands-free tool for watching video and doing homework faster
@@ -62,6 +63,23 @@ public class Application {
                     System.out.println("Wrong account or password");
                 }
             final String baseUri = "https://mooc1-1.chaoxing.com";
+            final Semaphore semaphore = new Semaphore(3);
+            System.out.print("Using fast mode (may got WARNING, suggest you DO NOT USE) [y/n]:");
+            boolean hasSleep = !scanner.next().equalsIgnoreCase("y");
+            System.out.print("Checking all answers to auto-complete homework (may got lower mark, store answers if not) [y/n]:");
+            boolean autoComplete = scanner.next().equalsIgnoreCase("y");
+            System.out.print("Input size of playerThreadPool(suggest max size is 3):");
+            PlayerManager playerManager = new PlayerManager(scanner.nextInt());
+            playerManager.setBaseUri(baseUri);
+            playerManager.setHasSleep(hasSleep);
+            playerManager.setSemaphore(semaphore);
+            System.out.print("Input size of homeworkThreadPool(suggest max size is 2):");
+            HomeworkManager homeworkManager = new HomeworkManager(scanner.nextInt());
+            homeworkManager.setBaseUri(baseUri);
+            homeworkManager.setHasSleep(hasSleep);
+            homeworkManager.setSemaphore(semaphore);
+            homeworkManager.setAutoComplete(autoComplete);
+//            System.out.println("Press 'p' to pause, press 's' to stop, press any key to continue");
             String classesUri = "";
             while (classesUri.isEmpty())
                 try {
@@ -69,20 +87,6 @@ public class Application {
                 } catch (CheckCodeException e) {
                     customCallBack.call(e.getSession(), e.getUri());
                 }
-            System.out.print("Using fast mode (may got WARNING, suggest you DO NOT USE) [y/n]:");
-            boolean hasSleep = !scanner.next().equalsIgnoreCase("y");
-            System.out.print("Checking all answers to auto-complete homework (may got lower mark, store answers if not) [y/n]:");
-            boolean autoComplete = scanner.next().equalsIgnoreCase("y");
-            System.out.print("Input size of playerThreadPool(suggest max size is 4):");
-            PlayerManager playerManager = new PlayerManager(scanner.nextInt());
-            playerManager.setBaseUri(baseUri);
-            playerManager.setHasSleep(hasSleep);
-            System.out.print("Input size of homeworkThreadPool(suggest max size is 2):");
-            HomeworkManager homeworkManager = new HomeworkManager(scanner.nextInt());
-            homeworkManager.setBaseUri(baseUri);
-            homeworkManager.setHasSleep(hasSleep);
-            homeworkManager.setAutoComplete(autoComplete);
-//            System.out.println("Press 'p' to pause, press 's' to stop, press any key to continue");
             String cardUriModel = "";
             List<Map<String, String>> paramsList = new ArrayList<>();
             for (String classUri : CXUtil.getClasses(classesUri))
@@ -109,8 +113,8 @@ public class Application {
             homeworkManager.setParamsList(paramsList);
             homeworkManager.setCustomCallBack(customCallBack);
             Thread playerThread = new Thread(playerManager);
-            playerThread.start();
             Thread homeworkThread = new Thread(homeworkManager);
+            playerThread.start();
             homeworkThread.start();
             playerThread.join();
             homeworkThread.join();

@@ -16,8 +16,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.Semaphore;
 
 public class HomeworkTask implements Runnable, Callable<Boolean> {
+    private Semaphore semaphore;
     private final TaskInfo<HomeworkData> taskInfo;
     private final HomeworkQuizInfo homeworkQuizInfo;
     private final String baseUri;
@@ -50,7 +52,6 @@ public class HomeworkTask implements Runnable, Callable<Boolean> {
                         for (OptionInfo optionInfo : quizConfigListEntry.getValue())
                             System.out.println(optionInfo.getName() + "." + optionInfo.getDescription());
                     }
-                checkCodeCallBack.print(this.homeworkName + "[homework finish]");
             } else if (answerQuestion(this.homeworkQuizInfo)) {
                 for (Map.Entry<QuizConfig, List<OptionInfo>> quizConfigListEntry : answers.entrySet()) {
                     System.out.print("answer success:");
@@ -58,19 +59,25 @@ public class HomeworkTask implements Runnable, Callable<Boolean> {
                     for (OptionInfo optionInfo : quizConfigListEntry.getValue())
                         System.out.println(optionInfo.getName() + "." + optionInfo.getDescription());
                 }
-                checkCodeCallBack.print(this.homeworkName + "[homework finish]");
             }
             if (hasSleep)
-                Thread.sleep(10 * 60 * 1000);
+                Thread.sleep(3 * 60 * 1000);
+            checkCodeCallBack.print(this.homeworkName + "[homework finish]");
         } catch (InterruptedException | WrongAccountException e) {
             System.out.println(e.getMessage());
         }
+        if (null != semaphore)
+            semaphore.release();
     }
 
     @Override
     public Boolean call() {
         run();
         return true;
+    }
+
+    public void setSemaphore(Semaphore semaphore) {
+        this.semaphore = semaphore;
     }
 
     public void setHasSleep(boolean hasSleep) {
@@ -105,11 +112,7 @@ public class HomeworkTask implements Runnable, Callable<Boolean> {
             if (!quizConfig.isAnswered())
                 for (OptionInfo optionInfo : quizConfig.getOptions())
                     if (optionInfo.isRight())
-                        if (!questions.containsKey(quizConfig)) {
-                            questions.put(quizConfig, new ArrayList<>());
-                            questions.get(quizConfig).add(optionInfo);
-                        } else
-                            questions.get(quizConfig).add(optionInfo);
+                        questions.computeIfAbsent(quizConfig, key -> new ArrayList<>()).add(optionInfo);
         return questions;
     }
 
