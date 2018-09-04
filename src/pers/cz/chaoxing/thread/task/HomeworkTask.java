@@ -1,4 +1,4 @@
-package pers.cz.chaoxing.thread;
+package pers.cz.chaoxing.thread.task;
 
 import pers.cz.chaoxing.callback.CallBack;
 import pers.cz.chaoxing.callback.CallBackData;

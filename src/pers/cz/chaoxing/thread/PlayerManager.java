@@ -6,6 +6,7 @@ import pers.cz.chaoxing.common.VideoInfo;
 import pers.cz.chaoxing.common.task.PlayerData;
 import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.exception.CheckCodeException;
+import pers.cz.chaoxing.thread.task.PlayTask;
 import pers.cz.chaoxing.util.CXUtil;
 import pers.cz.chaoxing.util.InfoType;
 

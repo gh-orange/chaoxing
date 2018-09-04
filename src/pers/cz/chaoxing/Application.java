@@ -2,22 +2,13 @@ package pers.cz.chaoxing;
 
 import net.dongliu.requests.exception.RequestsException;
 import pers.cz.chaoxing.callback.impl.CustomCheckCodeCallBack;
-import pers.cz.chaoxing.callback.impl.HomeworkCheckCodeCallBack;
-import pers.cz.chaoxing.common.VideoInfo;
-import pers.cz.chaoxing.common.quiz.HomeworkQuizInfo;
-import pers.cz.chaoxing.common.task.HomeworkData;
-import pers.cz.chaoxing.common.task.PlayerData;
-import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.exception.CheckCodeException;
 import pers.cz.chaoxing.exception.WrongAccountException;
 import pers.cz.chaoxing.thread.*;
+import pers.cz.chaoxing.thread.task.PlayTask;
 import pers.cz.chaoxing.util.CXUtil;
-import pers.cz.chaoxing.util.InfoType;
 
-import java.io.UnsupportedEncodingException;
-import java.net.URLDecoder;
 import java.util.*;
-import java.util.concurrent.*;
 
 /**
  * ChaoxingPlugin - A hands-free tool for watching video and doing homework faster
