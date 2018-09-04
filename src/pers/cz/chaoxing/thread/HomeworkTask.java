@@ -51,7 +51,7 @@ public class HomeworkTask implements Runnable, Callable<Boolean> {
                             System.out.println(optionInfo.getName() + "." + optionInfo.getDescription());
                     }
                 checkCodeCallBack.print(this.homeworkName + "[homework finish]");
-            } else if (storeQuestion(this.homeworkQuizInfo)) {
+            } else if (answerQuestion(this.homeworkQuizInfo)) {
                 for (Map.Entry<QuizConfig, List<OptionInfo>> quizConfigListEntry : answers.entrySet()) {
                     System.out.print("answer success:");
                     System.out.println(quizConfigListEntry.getKey().getDescription());

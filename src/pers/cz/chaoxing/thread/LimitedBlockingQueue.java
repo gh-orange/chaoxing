@@ -3,13 +3,17 @@ package pers.cz.chaoxing.thread;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class LimitedBlockingQueue<T> extends LinkedBlockingQueue<T> {
-    public LimitedBlockingQueue(int maxSize) {
+    private static final long serialVersionUID = -2336409730666428037L;
+
+    LimitedBlockingQueue(int maxSize) {
         super(maxSize);
     }
 
     @Override
     public boolean offer(T t) {
-// turn offer() and add() into a blocking calls (unless interrupted)
+        /*
+        turn offer() and add() into a blocking calls (unless interrupted)
+         */
         try {
             put(t);
             return true;

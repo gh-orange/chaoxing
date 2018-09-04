@@ -5,6 +5,7 @@ import net.dongliu.requests.Session;
 import net.dongliu.requests.StatusCodes;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 import pers.cz.chaoxing.callback.CallBack;
 import pers.cz.chaoxing.util.CXUtil;
 
@@ -70,7 +71,15 @@ public class CustomCheckCodeCallBack implements CallBack<Boolean> {
             return false;
         Document document = Jsoup.parse(response.readToText());
         this.actionUri = document.select("form").attr("action");
-        String imgUri = document.select("img").attr("src");
+        Element img = document.selectFirst("img");
+        String imgUri = img.attr("src");
+        if (imgUri.isEmpty()) {
+            imgUri = img.attr("onclick");
+            String begin = "this.src='";
+            String end = "?";
+            int beginIndex = imgUri.indexOf(begin) + begin.length();
+            imgUri = imgUri.substring(beginIndex, imgUri.indexOf(end, beginIndex));
+        }
         session.get(this.baseUri + imgUri).proxy(CXUtil.proxy).send().writeToFile(path);
         return true;
     }

@@ -452,21 +452,20 @@ public class CXUtil {
             homeworkQuizInfo.getDatas()[i].setAnswered(isAnswered);
             homeworkQuizInfo.getDatas()[i].setDescription(questions.get(i).select("div.Zy_TItle div.clearfix").first().text());
             Element inputAnswerType = questions.get(i).select("input[id~=answertype]").first();
-            Element previous = inputAnswerType.previousElementSibling();
-            homeworkQuizInfo.getDatas()[i].setResourceId(inputAnswerType.id());
+            Element inputAnswerCheck = inputAnswerType.previousElementSibling();
+            homeworkQuizInfo.getDatas()[i].setMemberinfo(inputAnswerType.id());
+            if (inputAnswerCheck.tagName().equals("input"))
+                homeworkQuizInfo.getDatas()[i].setAnswerCheck(inputAnswerCheck.attr("name"));
             homeworkQuizInfo.getDatas()[i].setQuestionType(inputAnswerType.val());
             Elements lis = questions.get(i).getElementsByTag("ul").first().getElementsByTag("li");
             homeworkQuizInfo.getDatas()[i].setOptions(new OptionInfo[lis.size()]);
-            Element inputAnswer = lis.first().selectFirst("label input");
-            if (inputAnswer.tagName().equals("input"))
-                homeworkQuizInfo.getDatas()[i].setMemberinfo(inputAnswer.attr("name"));
-            if (homeworkQuizInfo.getDatas()[i].getQuestionType().equals("1")) {
-                Element inputAnswerCheck = questions.get(i).select("input[id~=answercheck]").first();
-                //todo
-            }
             for (int j = 0; j < lis.size(); j++) {
+                Element inputAnswer = lis.get(j).selectFirst("label input");
+                if (inputAnswer.tagName().equals("input"))
+                    if (homeworkQuizInfo.getDatas()[i].getResourceId() == null || homeworkQuizInfo.getDatas()[i].getResourceId().isEmpty())
+                        homeworkQuizInfo.getDatas()[i].setResourceId(inputAnswer.attr("name"));
                 homeworkQuizInfo.getDatas()[i].getOptions()[j] = new OptionInfo();
-                homeworkQuizInfo.getDatas()[i].getOptions()[j].setName(lis.get(j).select("label input").val());
+                homeworkQuizInfo.getDatas()[i].getOptions()[j].setName(inputAnswer.val());
                 homeworkQuizInfo.getDatas()[i].getOptions()[j].setDescription(lis.get(j).select("a").text());
                 if (homeworkQuizInfo.getDatas()[i].getOptions()[j].getDescription().isEmpty())
                     homeworkQuizInfo.getDatas()[i].getOptions()[j].setDescription(homeworkQuizInfo.getDatas()[i].getOptions()[j].getName());
@@ -592,9 +591,7 @@ public class CXUtil {
         params.put("formType", "post");
         params.put("saveStatus", "1");
         params.put("version", String.valueOf(version));
-        /*
-        skip when store
-        */
+        //region skip when store
 //        if (!homeworkQuizInfo.getPyFlag().equals("1")) {
         int pageWidth = 898;
         int pageHeight = 687;
@@ -630,6 +627,7 @@ public class CXUtil {
         params.put("value", value);
         params.put("wid", homeworkQuizInfo.getWorkRelationId());
 //        }
+        //endregion
         Map<String, String> body = new IdentityHashMap<>();
         body.put("pyFlag", homeworkQuizInfo.getPyFlag());
         body.put("courseId", homeworkQuizInfo.getCourseId());
@@ -651,14 +649,14 @@ public class CXUtil {
             StringBuilder answerStr = new StringBuilder();
             for (OptionInfo optionInfo : quizConfig.getOptions())
                 if (optionInfo.isRight()) {
-                    body.put(new String(quizConfig.getMemberinfo()), optionInfo.getName());
-                    if (quizConfig.getQuestionType().equals("1"))
+                    body.put(new String(quizConfig.getResourceId()), optionInfo.getName());
+                    if (null != quizConfig.getAnswerCheck() && !quizConfig.getAnswerCheck().isEmpty())
                         answerStr.append(optionInfo.getName());
                 }
-            if (quizConfig.getResourceId() != null && !quizConfig.getResourceId().isEmpty())
-                body.put(quizConfig.getResourceId(), quizConfig.getQuestionType());
-            if (quizConfig.getQuestionType().equals("1"))
-                body.put(new String(quizConfig.getMemberinfo()), answerStr.toString());
+            if (null != quizConfig.getAnswerCheck() && !quizConfig.getAnswerCheck().isEmpty())
+                body.put(quizConfig.getAnswerCheck(), answerStr.toString());
+            if (quizConfig.getMemberinfo() != null && !quizConfig.getMemberinfo().isEmpty())
+                body.put(quizConfig.getMemberinfo(), quizConfig.getQuestionType());
         }
         RawResponse response = session.post(homeworkQuizInfo.getDatas()[0].getValidationUrl()).params(params).body(body).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
@@ -685,11 +683,20 @@ public class CXUtil {
         } catch (UnsupportedEncodingException e) {
             return false;
         }
-        RawResponse response = session.get("https://m.3gmfw.cn/so/" + description + "/").proxy(proxy).send();
-        Document document = Jsoup.parse(response.charset("GBK").readToText());
-        try {
-            FormElement form = document.select("form#challenge-form").forms().get(0);
-            while (null != form) {
+        RawResponse response;
+        Document document;
+        Elements forms;
+        /*
+        circumvent protection
+         */
+        do {
+            response = session.get("https://m.3gmfw.cn/so/" + description + "/").proxy(proxy).send();
+            document = Jsoup.parse(response.charset("GBK").readToText());
+            forms = document.select("form#challenge-form");
+            if (forms.isEmpty())
+                break;
+            try {
+                FormElement form = forms.forms().get(0);
                 form.setBaseUri("https://m.3gmfw.cn/");
                 String script = document.select("script").html();
                 String beginStr = "setTimeout(function(){";
@@ -717,12 +724,10 @@ public class CXUtil {
                 params.put("jschl_vc", form.select("input[name=jschl_vc]").val());
                 Thread.sleep(4 * 1000);
                 session.get(form.absUrl("action")).params(params).proxy(proxy).send();
-                response = session.get("https://m.3gmfw.cn/so/" + description + "/").proxy(proxy).send();
-                document = Jsoup.parse(response.charset("GBK").readToText());
-                form = document.select("form#challenge-form").forms().get(0);
+            } catch (Exception ignored) {
+                break;
             }
-        } catch (Exception ignored) {
-        }
+        } while (!forms.isEmpty());
         Element ul = document.selectFirst("ul.article-list");
         if (null == ul)
             return false;
@@ -751,9 +756,9 @@ public class CXUtil {
             for (OptionInfo optionInfo : quizConfig.getOptions()) {
                 if (answers.containsKey(Character.toString(c)) && answers.get(Character.toString(c)).contains(optionInfo.getDescription()) || optionInfo.getName().equals(rightAnswers)) {
                     optionInfo.setRight(true);
-                    answered = true;
                     if (!quizConfig.getQuestionType().equals("1"))
-                        return answered;
+                        return true;
+                    answered = true;
                 }
             }
         return answered;
