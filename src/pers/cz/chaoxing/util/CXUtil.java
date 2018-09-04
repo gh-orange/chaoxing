@@ -451,14 +451,19 @@ public class CXUtil {
             homeworkQuizInfo.getDatas()[i].setValidationUrl(baseUri + "/work/" + form.attr("action"));
             homeworkQuizInfo.getDatas()[i].setAnswered(isAnswered);
             homeworkQuizInfo.getDatas()[i].setDescription(questions.get(i).select("div.Zy_TItle div.clearfix").first().text());
-            Element input = questions.get(i).select("input[id~=answertype]").first();
-            Element previous = input.previousElementSibling();
-            if (previous.tagName().equals("input"))
-                homeworkQuizInfo.getDatas()[i].setMemberinfo(previous.id());
-            homeworkQuizInfo.getDatas()[i].setResourceId(input.id());
-            homeworkQuizInfo.getDatas()[i].setQuestionType(input.val());
+            Element inputAnswerType = questions.get(i).select("input[id~=answertype]").first();
+            Element previous = inputAnswerType.previousElementSibling();
+            homeworkQuizInfo.getDatas()[i].setResourceId(inputAnswerType.id());
+            homeworkQuizInfo.getDatas()[i].setQuestionType(inputAnswerType.val());
             Elements lis = questions.get(i).getElementsByTag("ul").first().getElementsByTag("li");
             homeworkQuizInfo.getDatas()[i].setOptions(new OptionInfo[lis.size()]);
+            Element inputAnswer = lis.first().selectFirst("label input");
+            if (inputAnswer.tagName().equals("input"))
+                homeworkQuizInfo.getDatas()[i].setMemberinfo(inputAnswer.attr("name"));
+            if (homeworkQuizInfo.getDatas()[i].getQuestionType().equals("1")) {
+                Element inputAnswerCheck = questions.get(i).select("input[id~=answercheck]").first();
+                //todo
+            }
             for (int j = 0; j < lis.size(); j++) {
                 homeworkQuizInfo.getDatas()[i].getOptions()[j] = new OptionInfo();
                 homeworkQuizInfo.getDatas()[i].getOptions()[j].setName(lis.get(j).select("label input").val());
@@ -646,17 +651,20 @@ public class CXUtil {
             StringBuilder answerStr = new StringBuilder();
             for (OptionInfo optionInfo : quizConfig.getOptions())
                 if (optionInfo.isRight()) {
-                    body.put(new String(quizConfig.getResourceId()), optionInfo.getName());
-                    if (quizConfig.getMemberinfo() != null && !quizConfig.getMemberinfo().isEmpty())
+                    body.put(new String(quizConfig.getMemberinfo()), optionInfo.getName());
+                    if (quizConfig.getQuestionType().equals("1"))
                         answerStr.append(optionInfo.getName());
                 }
-            if (quizConfig.getMemberinfo() != null && !quizConfig.getMemberinfo().isEmpty())
+            if (quizConfig.getResourceId() != null && !quizConfig.getResourceId().isEmpty())
+                body.put(quizConfig.getResourceId(), quizConfig.getQuestionType());
+            if (quizConfig.getQuestionType().equals("1"))
                 body.put(new String(quizConfig.getMemberinfo()), answerStr.toString());
         }
         RawResponse response = session.post(homeworkQuizInfo.getDatas()[0].getValidationUrl()).params(params).body(body).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(session, response.getHeader("lotcation"));
-        return !response.readToText().contains("提交失败");
+        String responseStr = response.readToText();
+        return !responseStr.contains("提交失败");
     }
 
     public static void saveCheckCode(String path) {
