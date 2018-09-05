@@ -48,27 +48,37 @@ public class HomeworkManager implements Runnable {
             try {
                 for (Map<String, String> params : paramsList) {
                     acquire();
+                    TaskInfo<HomeworkData> homeworkInfo;
                     while (true)
                         try {
-                            TaskInfo<HomeworkData> homeworkInfo = CXUtil.getTaskInfo(baseUri, cardUriModel, params, InfoType.Homework);
-                            HomeworkQuizInfo homeworkQuizInfo = CXUtil.getHomeworkQuiz(baseUri, homeworkInfo);
-                            if (homeworkQuizInfo.getDatas().length > 0 && !homeworkQuizInfo.getDatas()[0].isAnswered()) {
-                                String homeworkName = homeworkInfo.getAttachments()[0].getProperty().getTitle();
-                                System.out.println("Homework did not pass:" + homeworkName);
-                                HomeworkTask homeworkTask = new HomeworkTask(homeworkInfo, homeworkQuizInfo, baseUri);
-                                homeworkTask.setCheckCodeCallBack(homeworkCallBack);
-                                homeworkTask.setHasSleep(hasSleep);
-                                homeworkTask.setSemaphore(semaphore);
-                                homeworkTask.setAutoComplete(autoComplete);
-                                homeworkCompletionService.submit(homeworkTask);
-                                homeworkThreadCount++;
-                                System.out.println("Added homeworkTask to ThreadPool:" + homeworkName);
-                            } else
-                                release();
+                            homeworkInfo = CXUtil.getTaskInfo(baseUri, cardUriModel, params, InfoType.Homework);
                             break;
                         } catch (CheckCodeException e) {
                             customCallBack.call(e.getSession(), e.getUri());
                         }
+                    release();
+                    for (HomeworkData attachment : homeworkInfo.getAttachments()) {
+                        while (true)
+                            try {
+                                HomeworkQuizInfo homeworkQuizInfo = CXUtil.getHomeworkQuiz(baseUri, homeworkInfo, attachment);
+                                if (homeworkQuizInfo.getDatas().length > 0 && !homeworkQuizInfo.getDatas()[0].isAnswered()) {
+                                    String homeworkName = attachment.getProperty().getTitle();
+                                    System.out.println("Homework did not pass:" + homeworkName);
+                                    HomeworkTask homeworkTask = new HomeworkTask(homeworkInfo, attachment, homeworkQuizInfo, baseUri);
+                                    homeworkTask.setCheckCodeCallBack(homeworkCallBack);
+                                    homeworkTask.setHasSleep(hasSleep);
+                                    homeworkTask.setSemaphore(semaphore);
+                                    homeworkTask.setAutoComplete(autoComplete);
+                                    homeworkCompletionService.submit(homeworkTask);
+                                    homeworkThreadCount++;
+                                    System.out.println("Added homeworkTask to ThreadPool:" + homeworkName);
+                                } else
+                                    release();
+                                break;
+                            } catch (CheckCodeException e) {
+                                customCallBack.call(e.getSession(), e.getUri());
+                            }
+                    }
                 }
             } catch (RequestsException e) {
                 System.out.println("Net connection error");

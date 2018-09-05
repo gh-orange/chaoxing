@@ -49,44 +49,51 @@ public class PlayerManager implements Runnable {
             try {
                 for (Map<String, String> params : paramsList) {
                     acquire();
+                    TaskInfo<PlayerData> playerInfo;
                     while (true)
                         try {
-                            TaskInfo<PlayerData> playerInfo = CXUtil.getTaskInfo(baseUri, cardUriModel, params, InfoType.Video);
-                            if (playerInfo.getAttachments().length > 0 && !playerInfo.getAttachments()[0].isPassed()) {
-                                if (CXUtil.startRecord(baseUri, params)) {
-                                    VideoInfo videoInfo = CXUtil.getVideoInfo(baseUri, "/ananas/status", playerInfo.getAttachments()[0].getObjectId(), playerInfo.getDefaults().getFid());
-                                    String videoName = videoInfo.getFilename();
-                                    try {
-                                        videoName = URLDecoder.decode(videoName, "utf-8");
-                                    } catch (UnsupportedEncodingException ignored) {
-                                    }
-                                    System.out.println("Video did not pass:" + videoName);
-                                    char[] charArray = playerInfo.getAttachments()[0].getType().toCharArray();
-                                    charArray[0] -= 32;
-                                    playerInfo.getAttachments()[0].setType(String.valueOf(charArray));
-                                    PlayTask playTask = new PlayTask(playerInfo, videoInfo, baseUri);
-                                    playTask.setCheckCodeCallBack(customCallBack);
-                                    playTask.setHasSleep(hasSleep);
-                                    playTask.setSemaphore(semaphore);
-                                    playerCompletionService.submit(playTask);
-                                    playerThreadCount++;
-                                    System.out.println("Added playTask to ThreadPool:" + videoName);
-                                } else
-                                    release();
-                            } else
-                                release();
-                        /*
-                        imitate human click
-                        */
-                            if (hasSleep && ++clickCount % 15 == 0)
-                                Thread.sleep(30 * 1000);
+                            playerInfo = CXUtil.getTaskInfo(baseUri, cardUriModel, params, InfoType.Video);
                             break;
                         } catch (CheckCodeException e) {
                             customCallBack.call(e.getSession(), e.getUri());
                         }
+                    release();
+                    for (PlayerData attachment : playerInfo.getAttachments())
+                        if (!attachment.isPassed())
+//                            while (true)
+//                                try {
+                            if (CXUtil.startRecord(baseUri, params)) {
+                                VideoInfo videoInfo = CXUtil.getVideoInfo(baseUri, "/ananas/status", attachment.getObjectId(), playerInfo.getDefaults().getFid());
+                                String videoName = videoInfo.getFilename();
+                                try {
+                                    videoName = URLDecoder.decode(videoName, "utf-8");
+                                } catch (UnsupportedEncodingException ignored) {
+                                }
+                                System.out.println("Video did not pass:" + videoName);
+                                char[] charArray = attachment.getType().toCharArray();
+                                charArray[0] -= 32;
+                                attachment.setType(String.valueOf(charArray));
+                                PlayTask playTask = new PlayTask(playerInfo, attachment, videoInfo, baseUri);
+                                playTask.setCheckCodeCallBack(customCallBack);
+                                playTask.setHasSleep(hasSleep);
+                                playTask.setSemaphore(semaphore);
+                                playerCompletionService.submit(playTask);
+                                playerThreadCount++;
+                                System.out.println("Added playTask to ThreadPool:" + videoName);
+                            }
+//                                    break;
+//                                } catch (CheckCodeException e) {
+//                                    customCallBack.call(e.getSession(), e.getUri());
+//                                }
+                        /*
+                        imitate human click
+                        */
+                    if (hasSleep && ++clickCount % 15 == 0)
+                        Thread.sleep(30 * 1000);
                 }
                 Iterator<Map<String, String>> iterator = paramsList.iterator();
                 for (int i = 0; i < playerThreadCount && iterator.hasNext(); i++) {
+                    acquire();
                     try {
                         CXUtil.activeTask(baseUri, iterator.next());
                     } catch (CheckCodeException e) {
@@ -94,6 +101,7 @@ public class PlayerManager implements Runnable {
                     }
                     if (hasSleep)
                         Thread.sleep(10 * 1000);
+                    release();
                 }
             } catch (RequestsException e) {
                 System.out.println("Net connection error");
