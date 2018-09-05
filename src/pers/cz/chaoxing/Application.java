@@ -105,6 +105,7 @@ public class Application {
                         } catch (CheckCodeException e) {
                             customCallBack.call(e.getSession(), e.getUri());
                         }
+                    CXUtil.activeTask(baseUri + taskUri);
                 }
             playerManager.setCardUriModel(cardUriModel);
             playerManager.setParamsList(paramsList);

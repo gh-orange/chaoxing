@@ -1,6 +1,7 @@
 package pers.cz.chaoxing.util;
 
 import com.alibaba.fastjson.*;
+import com.sun.webkit.dom.NodeFilterImpl;
 import net.dongliu.requests.*;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
@@ -49,8 +50,8 @@ public class CXUtil {
 
     private static Session session = Requests.session();
 
-    public static Proxy proxy = Proxies.httpProxy("10.14.36.103", 8080);
-//    public static Proxy proxy = null;
+//    public static Proxy proxy = Proxies.httpProxy("10.14.36.103", 8080);
+    public static Proxy proxy = null;
 
     public static boolean login(String username, String password, String checkCode) throws WrongAccountException {
         String indexUri = session.get("http://dlnu.fy.chaoxing.com/topjs?index=1").proxy(proxy).send().readToText();
@@ -777,5 +778,19 @@ public class CXUtil {
                 }
             }
         return answered;
+    }
+
+    public static boolean activeTask(String uri) {
+        Document document = Jsoup.parse(session.get(uri).proxy(proxy).send().readToText());
+        try {
+        Element script = document.select("script[src~=https?://]").first();
+        String responseStr = session.get(script.attr("src")).proxy(proxy).send().readToText();
+        if (responseStr.contains("success")) {
+            return true;
+        }
+        }catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
     }
 }
