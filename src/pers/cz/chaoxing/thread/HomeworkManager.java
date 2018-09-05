@@ -47,8 +47,7 @@ public class HomeworkManager implements Runnable {
         if (this.homeworkThreadPoolCount > 0)
             try {
                 for (Map<String, String> params : paramsList) {
-                    if (null != semaphore)
-                        semaphore.acquire();
+                    acquire();
                     while (true)
                         try {
                             TaskInfo<HomeworkData> homeworkInfo = CXUtil.getTaskInfo(baseUri, cardUriModel, params, InfoType.Homework);
@@ -64,8 +63,8 @@ public class HomeworkManager implements Runnable {
                                 homeworkCompletionService.submit(homeworkTask);
                                 homeworkThreadCount++;
                                 System.out.println("Added homeworkTask to ThreadPool:" + homeworkName);
-                            } else if (null != semaphore)
-                                semaphore.release();
+                            } else
+                                release();
                             break;
                         } catch (CheckCodeException e) {
                             customCallBack.call(e.getSession(), e.getUri());
@@ -73,13 +72,21 @@ public class HomeworkManager implements Runnable {
                 }
             } catch (RequestsException e) {
                 System.out.println("Net connection error");
-                if (null != semaphore)
-                    semaphore.release();
+                release();
             } catch (Exception ignored) {
-                if (null != semaphore)
-                    semaphore.release();
+                release();
             }
-        System.out.println("Homework group finish");
+        System.out.println("All homework task has been called");
+    }
+
+    private void acquire() throws InterruptedException {
+        if (null != semaphore)
+            semaphore.acquire();
+    }
+
+    private void release() {
+        if (null != semaphore)
+            semaphore.release();
     }
 
     public void setParamsList(List<Map<String, String>> paramsList) {

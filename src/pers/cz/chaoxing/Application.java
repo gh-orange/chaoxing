@@ -95,7 +95,7 @@ public class Application {
                     String[] taskUris = taskUri.split("\\?", 2);
                     Map<String, String> params = new HashMap<>();
                     for (String param : taskUris[1].split("&")) {
-                        String[] strings = param.split("=");
+                        String[] strings = param.split("=", 2);
                         params.put(strings[0], strings[1]);
                     }
                     paramsList.add(params);
@@ -105,7 +105,6 @@ public class Application {
                         } catch (CheckCodeException e) {
                             customCallBack.call(e.getSession(), e.getUri());
                         }
-                    CXUtil.activeTask(baseUri + taskUri);
                 }
             playerManager.setCardUriModel(cardUriModel);
             playerManager.setParamsList(paramsList);

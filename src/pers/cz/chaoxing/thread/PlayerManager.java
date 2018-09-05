@@ -12,6 +12,7 @@ import pers.cz.chaoxing.util.InfoType;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -47,8 +48,7 @@ public class PlayerManager implements Runnable {
         if (this.playerThreadPoolCount > 0)
             try {
                 for (Map<String, String> params : paramsList) {
-                    if (null != semaphore)
-                        semaphore.acquire();
+                    acquire();
                     while (true)
                         try {
                             TaskInfo<PlayerData> playerInfo = CXUtil.getTaskInfo(baseUri, cardUriModel, params, InfoType.Video);
@@ -71,10 +71,10 @@ public class PlayerManager implements Runnable {
                                     playerCompletionService.submit(playTask);
                                     playerThreadCount++;
                                     System.out.println("Added playTask to ThreadPool:" + videoName);
-                                } else if (null != semaphore)
-                                    semaphore.release();
-                            } else if (null != semaphore)
-                                semaphore.release();
+                                } else
+                                    release();
+                            } else
+                                release();
                         /*
                         imitate human click
                         */
@@ -85,15 +85,33 @@ public class PlayerManager implements Runnable {
                             customCallBack.call(e.getSession(), e.getUri());
                         }
                 }
+                Iterator<Map<String, String>> iterator = paramsList.iterator();
+                for (int i = 0; i < playerThreadCount && iterator.hasNext(); i++) {
+                    try {
+                        CXUtil.activeTask(baseUri, iterator.next());
+                    } catch (CheckCodeException e) {
+                        customCallBack.call(e.getSession(), e.getUri());
+                    }
+                    if (hasSleep)
+                        Thread.sleep(10 * 1000);
+                }
             } catch (RequestsException e) {
                 System.out.println("Net connection error");
-                if (null != semaphore)
-                    semaphore.release();
+                release();
             } catch (Exception ignored) {
-                if (null != semaphore)
-                    semaphore.release();
+                release();
             }
-        System.out.println("Player group finish");
+        System.out.println("All player task has been called");
+    }
+
+    private void acquire() throws InterruptedException {
+        if (null != semaphore)
+            semaphore.acquire();
+    }
+
+    private void release() {
+        if (null != semaphore)
+            semaphore.release();
     }
 
     public void setParamsList(List<Map<String, String>> paramsList) {

@@ -109,14 +109,18 @@ public class PlayTask implements Runnable, Callable<Boolean> {
         } catch (InterruptedException e) {
             System.out.println(e.getMessage());
         }
-        if (null != semaphore)
-            semaphore.release();
+        release();
     }
 
     @Override
     public Boolean call() {
         run();
         return true;
+    }
+
+    private void release() {
+        if (null != semaphore)
+            semaphore.release();
     }
 
     public void setStop(boolean stop) {

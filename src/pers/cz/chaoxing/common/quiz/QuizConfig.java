@@ -3,7 +3,6 @@ package pers.cz.chaoxing.common.quiz;
 public class QuizConfig {
     private String memberinfo;
     private String resourceId;
-    private String answerCheck;
     private boolean answered;
     private String errorReportUrl;
     private OptionInfo[] options;
@@ -12,6 +11,10 @@ public class QuizConfig {
     private long startTime;
     private long endTime;
     private String questionType;
+    /*
+    extra data
+     */
+    private String answerCheck;
 
     public String getMemberinfo() {
         return memberinfo;
@@ -27,14 +30,6 @@ public class QuizConfig {
 
     public void setResourceId(String resourceId) {
         this.resourceId = resourceId;
-    }
-
-    public String getAnswerCheck() {
-        return answerCheck;
-    }
-
-    public void setAnswerCheck(String answerCheck) {
-        this.answerCheck = answerCheck;
     }
 
     public boolean isAnswered() {
@@ -99,6 +94,14 @@ public class QuizConfig {
 
     public void setQuestionType(String questionType) {
         this.questionType = questionType;
+    }
+
+    public String getAnswerCheck() {
+        return answerCheck;
+    }
+
+    public void setAnswerCheck(String answerCheck) {
+        this.answerCheck = answerCheck;
     }
 
 }

@@ -50,8 +50,8 @@ public class CXUtil {
 
     private static Session session = Requests.session();
 
-//    public static Proxy proxy = Proxies.httpProxy("10.14.36.103", 8080);
-    public static Proxy proxy = null;
+    public static Proxy proxy = Proxies.httpProxy("10.14.36.103", 8080);
+//    public static Proxy proxy = null;
 
     public static boolean login(String username, String password, String checkCode) throws WrongAccountException {
         String indexUri = session.get("http://dlnu.fy.chaoxing.com/topjs?index=1").proxy(proxy).send().readToText();
@@ -130,6 +130,38 @@ public class CXUtil {
         endStr = "\";";
         beginIndex = cardUri.indexOf(beginStr) + beginStr.length();
         return cardUri.substring(beginIndex, cardUri.indexOf(endStr, beginIndex)).replaceAll("[\"+]", "");
+    }
+
+    /**
+     * active task point color to green
+     *
+     * @param baseUri
+     * @param params
+     * @return
+     * @throws CheckCodeException
+     */
+    public static boolean activeTask(String baseUri, Map<String, String> params) throws CheckCodeException {
+        System.out.println(params.get("chapterId"));
+        String src = baseUri + "/mycourse/studentstudy";
+        RawResponse response = null;
+        for (int i = 0; i < 2; i++) {
+            response = session.get(src).params(params).followRedirect(false).proxy(proxy).send();
+            if (response.getStatusCode() == StatusCodes.FOUND) {
+                src = response.getHeader("location");
+                if (src != null && !src.contains("study"))
+                    throw new CheckCodeException(session, src);
+            } else
+                break;
+        }
+        if (response.getStatusCode() == StatusCodes.FOUND)
+            throw new CheckCodeException(session, src);
+        Element script = Jsoup.parse(response.readToText()).select("script[src~=https?://]").first();
+        if (null == script)
+            return false;
+        response = session.get(script.attr("src")).followRedirect(false).proxy(proxy).send();
+        if (response.getStatusCode() == StatusCodes.FOUND)
+            throw new CheckCodeException(session, response.getHeader("location"));
+        return response.readToText().contains("success");
     }
 
     public static synchronized <T extends TaskData> TaskInfo<T> getTaskInfo(String baseUri, String cardUri, Map<String, String> params, InfoType infoType) throws CheckCodeException {
@@ -432,6 +464,8 @@ public class CXUtil {
             } else
                 break;
         }
+        if (response.getStatusCode() == StatusCodes.FOUND)
+            throw new CheckCodeException(session, src);
         String responseStr = response.readToText();
         Elements elements = Jsoup.parse(responseStr).select("div.CeYan");
         boolean isAnswered = !elements.select("div.ZyTop h3 span").text().contains("待做");
@@ -780,17 +814,4 @@ public class CXUtil {
         return answered;
     }
 
-    public static boolean activeTask(String uri) {
-        Document document = Jsoup.parse(session.get(uri).proxy(proxy).send().readToText());
-        try {
-        Element script = document.select("script[src~=https?://]").first();
-        String responseStr = session.get(script.attr("src")).proxy(proxy).send().readToText();
-        if (responseStr.contains("success")) {
-            return true;
-        }
-        }catch (Exception e) {
-            e.printStackTrace();
-        }
-        return false;
-    }
 }

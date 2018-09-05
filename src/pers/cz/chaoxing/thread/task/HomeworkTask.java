@@ -66,14 +66,18 @@ public class HomeworkTask implements Runnable, Callable<Boolean> {
         } catch (InterruptedException | WrongAccountException e) {
             System.out.println(e.getMessage());
         }
-        if (null != semaphore)
-            semaphore.release();
+        release();
     }
 
     @Override
     public Boolean call() {
         run();
         return true;
+    }
+
+    private void release() {
+        if (null != semaphore)
+            semaphore.release();
     }
 
     public void setSemaphore(Semaphore semaphore) {
