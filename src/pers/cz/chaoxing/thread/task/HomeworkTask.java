@@ -21,6 +21,7 @@ import java.util.concurrent.Semaphore;
 public class HomeworkTask implements Runnable, Callable<Boolean> {
     private Semaphore semaphore;
     private final TaskInfo<HomeworkData> taskInfo;
+    private final HomeworkData attachment;
     private final HomeworkQuizInfo homeworkQuizInfo;
     private final String baseUri;
     private String homeworkName;
@@ -29,50 +30,60 @@ public class HomeworkTask implements Runnable, Callable<Boolean> {
     private boolean autoComplete;
     private CallBack<?> checkCodeCallBack;
 
-    public HomeworkTask(TaskInfo<HomeworkData> taskInfo, HomeworkQuizInfo homeworkQuizInfo, String baseUri) {
+    public HomeworkTask(TaskInfo<HomeworkData> taskInfo, HomeworkData attachment, HomeworkQuizInfo homeworkQuizInfo, String baseUri) {
         this.taskInfo = taskInfo;
+        this.attachment = attachment;
         this.homeworkQuizInfo = homeworkQuizInfo;
         this.baseUri = baseUri;
         this.hasFail = false;
         this.hasSleep = true;
         this.autoComplete = true;
-        this.homeworkName = taskInfo.getAttachments()[0].getProperty().getTitle();
+        this.homeworkName = this.attachment.getProperty().getTitle();
     }
 
     @Override
     public void run() {
         try {
-            checkCodeCallBack.print(this.homeworkName + "[homework start]");
-            Map<QuizConfig, List<OptionInfo>> answers = getAnswers(this.homeworkQuizInfo);
-            if (hasFail) {
-                if (storeQuestion(this.homeworkQuizInfo))
+            acquire();
+            try {
+                checkCodeCallBack.print(this.homeworkName + "[homework start]");
+                Map<QuizConfig, List<OptionInfo>> answers = getAnswers(this.homeworkQuizInfo);
+                if (hasFail) {
+                    if (storeQuestion(this.homeworkQuizInfo))
+                        for (Map.Entry<QuizConfig, List<OptionInfo>> quizConfigListEntry : answers.entrySet()) {
+                            System.out.print("store success:");
+                            System.out.println(quizConfigListEntry.getKey().getDescription());
+                            for (OptionInfo optionInfo : quizConfigListEntry.getValue())
+                                System.out.println(optionInfo.getName() + "." + optionInfo.getDescription());
+                        }
+                } else if (answerQuestion(this.homeworkQuizInfo)) {
                     for (Map.Entry<QuizConfig, List<OptionInfo>> quizConfigListEntry : answers.entrySet()) {
-                        System.out.print("store success:");
+                        System.out.print("answer success:");
                         System.out.println(quizConfigListEntry.getKey().getDescription());
                         for (OptionInfo optionInfo : quizConfigListEntry.getValue())
                             System.out.println(optionInfo.getName() + "." + optionInfo.getDescription());
                     }
-            } else if (answerQuestion(this.homeworkQuizInfo)) {
-                for (Map.Entry<QuizConfig, List<OptionInfo>> quizConfigListEntry : answers.entrySet()) {
-                    System.out.print("answer success:");
-                    System.out.println(quizConfigListEntry.getKey().getDescription());
-                    for (OptionInfo optionInfo : quizConfigListEntry.getValue())
-                        System.out.println(optionInfo.getName() + "." + optionInfo.getDescription());
                 }
+                if (hasSleep)
+                    Thread.sleep(3 * 60 * 1000);
+                checkCodeCallBack.print(this.homeworkName + "[homework finish]");
+            } catch (InterruptedException | WrongAccountException e) {
+                System.out.println(e.getMessage());
             }
-            if (hasSleep)
-                Thread.sleep(3 * 60 * 1000);
-            checkCodeCallBack.print(this.homeworkName + "[homework finish]");
-        } catch (InterruptedException | WrongAccountException e) {
-            System.out.println(e.getMessage());
+            release();
+        } catch (InterruptedException ignored) {
         }
-        release();
     }
 
     @Override
     public Boolean call() {
         run();
         return true;
+    }
+
+    private void acquire() throws InterruptedException {
+        if (null != semaphore)
+            semaphore.acquire();
     }
 
     private void release() {

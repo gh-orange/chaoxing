@@ -67,9 +67,7 @@ public class Application {
             boolean hasSleep = !scanner.next().equalsIgnoreCase("y");
             System.out.print("Checking all answers to auto-complete homework (may got lower mark, store answers if not) [y/n]:");
             boolean autoComplete = scanner.next().equalsIgnoreCase("y");
-            Semaphore semaphore = null;
-            if (hasSleep)
-                semaphore = new Semaphore(4);
+            Semaphore semaphore = hasSleep ? new Semaphore(4) : null;
             System.out.print("Input size of playerThreadPool(suggest max size is 3):");
             PlayerManager playerManager = new PlayerManager(scanner.nextInt());
             playerManager.setBaseUri(baseUri);

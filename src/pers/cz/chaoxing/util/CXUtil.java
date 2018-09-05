@@ -50,8 +50,8 @@ public class CXUtil {
 
     private static Session session = Requests.session();
 
-    public static Proxy proxy = Proxies.httpProxy("10.14.36.103", 8080);
-//    public static Proxy proxy = null;
+//    public static Proxy proxy = Proxies.httpProxy("10.14.36.103", 8080);
+    public static Proxy proxy = null;
 
     public static boolean login(String username, String password, String checkCode) throws WrongAccountException {
         String indexUri = session.get("http://dlnu.fy.chaoxing.com/topjs?index=1").proxy(proxy).send().readToText();
@@ -183,7 +183,8 @@ public class CXUtil {
                     return JSON.parseObject(responseStr.substring(beginIndex, responseStr.indexOf(endStr, beginIndex)), playerInfoType);
                 case Homework:
                     TaskInfo<HomeworkData> taskInfo = JSON.parseObject(responseStr.substring(beginIndex, responseStr.indexOf(endStr, beginIndex)), homeworkInfoType);
-                    taskInfo.getAttachments()[0].setUtEnc(params.get("utenc"));
+                    for (HomeworkData attachment : taskInfo.getAttachments())
+                        attachment.setUtEnc(params.get("utenc"));
                     return (TaskInfo<T>) taskInfo;
                 default:
                     return JSON.parseObject(responseStr.substring(beginIndex, responseStr.indexOf(endStr, beginIndex)), taskInfoType);
@@ -239,8 +240,8 @@ public class CXUtil {
      * @return
      * @throws CheckCodeException
      */
-    public static boolean onStart(TaskInfo<PlayerData> taskInfo, VideoInfo videoInfo) throws CheckCodeException {
-        return sendLog(taskInfo, videoInfo, (int) (taskInfo.getAttachments()[0].getHeadOffset() / 1000), 3);
+    public static boolean onStart(TaskInfo<PlayerData> taskInfo, PlayerData attachment, VideoInfo videoInfo) throws CheckCodeException {
+        return sendLog(taskInfo, attachment, videoInfo, (int) (attachment.getHeadOffset() / 1000), 3);
     }
 
     /**
@@ -251,8 +252,8 @@ public class CXUtil {
      * @return
      * @throws CheckCodeException
      */
-    public static boolean onEnd(TaskInfo taskInfo, VideoInfo videoInfo) throws CheckCodeException {
-        return sendLog(taskInfo, videoInfo, videoInfo.getDuration(), 4);
+    public static boolean onEnd(TaskInfo taskInfo, PlayerData attachment, VideoInfo videoInfo) throws CheckCodeException {
+        return sendLog(taskInfo, attachment, videoInfo, videoInfo.getDuration(), 4);
     }
 
     /**
@@ -264,8 +265,8 @@ public class CXUtil {
      * @return
      * @throws CheckCodeException
      */
-    public static boolean onPlay(TaskInfo taskInfo, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
-        return sendLog(taskInfo, videoInfo, playSecond, 3);
+    public static boolean onPlay(TaskInfo taskInfo, PlayerData attachment, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
+        return sendLog(taskInfo, attachment, videoInfo, playSecond, 3);
     }
 
     /**
@@ -277,9 +278,9 @@ public class CXUtil {
      * @return
      * @throws CheckCodeException
      */
-    public static boolean onPause(TaskInfo taskInfo, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
+    public static boolean onPause(TaskInfo taskInfo, PlayerData attachment, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
         if (taskInfo.getDefaults().getChapterId() != null && !taskInfo.getDefaults().getChapterId().isEmpty())
-            return sendLog(taskInfo, videoInfo, playSecond, 2);
+            return sendLog(taskInfo, attachment, videoInfo, playSecond, 2);
         return false;
     }
 
@@ -292,8 +293,8 @@ public class CXUtil {
      * @return
      * @throws CheckCodeException
      */
-    public static boolean onPlayProgress(TaskInfo taskInfo, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
-        return sendLog(taskInfo, videoInfo, playSecond, 0);
+    public static boolean onPlayProgress(TaskInfo taskInfo, PlayerData attachment, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
+        return sendLog(taskInfo, attachment, videoInfo, playSecond, 0);
     }
 
     /**
@@ -335,7 +336,7 @@ public class CXUtil {
      * return;
      * }
      **/
-    private static boolean sendLog(TaskInfo taskInfo, VideoInfo videoInfo, int playSecond, int dragStatus) throws CheckCodeException {
+    private static boolean sendLog(TaskInfo taskInfo, PlayerData attachment, VideoInfo videoInfo, int playSecond, int dragStatus) throws CheckCodeException {
         /*
         don't send when review mode
         */
@@ -384,16 +385,16 @@ public class CXUtil {
         params.put("clazzId", taskInfo.getDefaults().getClazzId());
         params.put("objectId", videoInfo.getObjectid());
         params.put("userid", taskInfo.getDefaults().getUserid());
-        params.put("jobid", taskInfo.getAttachments()[0].getJobid());
-        params.put("otherInfo", taskInfo.getAttachments()[0].getOtherInfo());
+        params.put("jobid", attachment.getJobid());
+        params.put("otherInfo", attachment.getOtherInfo());
         params.put("playingTime", String.valueOf(playSecond));
         params.put("isdrag", String.valueOf(dragStatus));
         params.put("duration", String.valueOf(videoInfo.getDuration()));
         params.put("clipTime", clipTime);
-        params.put("dtype", taskInfo.getAttachments()[0].getType());
+        params.put("dtype", attachment.getType());
         params.put("rt", String.valueOf(videoInfo.getRt() != 0.0f ? videoInfo.getRt() : 0.9f));
         params.put("view", "pc");
-        md5.update(("[" + taskInfo.getDefaults().getClazzId() + "]" + "[" + taskInfo.getDefaults().getUserid() + "]" + "[" + taskInfo.getAttachments()[0].getJobid() + "]" + "[" + videoInfo.getObjectid() + "]" + "[" + playSecond * 1000 + "]" + "[d_yHJ!$pdA~5]" + "[" + videoInfo.getDuration() * 1000 + "]" + "[" + clipTime + "]").getBytes());
+        md5.update(("[" + taskInfo.getDefaults().getClazzId() + "]" + "[" + taskInfo.getDefaults().getUserid() + "]" + "[" + attachment.getJobid() + "]" + "[" + videoInfo.getObjectid() + "]" + "[" + playSecond * 1000 + "]" + "[d_yHJ!$pdA~5]" + "[" + videoInfo.getDuration() * 1000 + "]" + "[" + clipTime + "]").getBytes());
         StringBuilder md5Str = new StringBuilder(new BigInteger(1, md5.digest()).toString(16));
         while (md5Str.length() < 32)
             md5Str.insert(0, "0");
@@ -437,12 +438,12 @@ public class CXUtil {
         return jsonObject.getString("answer").equals(answer) && jsonObject.getBoolean("isRight");
     }
 
-    public static HomeworkQuizInfo getHomeworkQuiz(String baseUri, TaskInfo<HomeworkData> taskInfo) throws CheckCodeException {
+    public static HomeworkQuizInfo getHomeworkQuiz(String baseUri, TaskInfo<HomeworkData> taskInfo, HomeworkData attachment) throws CheckCodeException {
         HashMap<String, String> params = new HashMap<>();
         params.put("api", "1");
         params.put("needRedirect", "true");
-        params.put("workId", taskInfo.getAttachments()[0].getProperty().getWorkid());
-        params.put("jobid", taskInfo.getAttachments()[0].getJobid());
+        params.put("workId", attachment.getProperty().getWorkid());
+        params.put("jobid", attachment.getJobid());
         params.put("knowledgeid", taskInfo.getDefaults().getKnowledgeid());
         /*
         teacher or student
@@ -450,9 +451,9 @@ public class CXUtil {
         params.put("ut", "s");
         params.put("courseid", taskInfo.getDefaults().getCourseid());
         params.put("clazzId", taskInfo.getDefaults().getClazzId());
-        params.put("type", "workB".equals(taskInfo.getAttachments()[0].getProperty().getWorktype()) ? "b" : "");
-        params.put("enc", taskInfo.getAttachments()[0].getEnc());
-        params.put("utenc", taskInfo.getAttachments()[0].getUtEnc());
+        params.put("type", "workB".equals(attachment.getProperty().getWorktype()) ? "b" : "");
+        params.put("enc", attachment.getEnc());
+        params.put("utenc", attachment.getUtEnc());
         RawResponse response = null;
         String src = baseUri + "/api/work";
         for (int i = 0; i < 3; i++) {

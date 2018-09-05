@@ -21,6 +21,7 @@ import java.util.concurrent.Semaphore;
 public class PlayTask implements Runnable, Callable<Boolean> {
     private Semaphore semaphore;
     private final TaskInfo<PlayerData> taskInfo;
+    private final PlayerData attachment;
     private final VideoInfo videoInfo;
     private final String baseUri;
     private String videoName;
@@ -30,11 +31,12 @@ public class PlayTask implements Runnable, Callable<Boolean> {
     private boolean hasSleep;
     private CallBack<?> checkCodeCallBack;
 
-    public PlayTask(TaskInfo<PlayerData> taskInfo, VideoInfo videoInfo, String baseUri) {
+    public PlayTask(TaskInfo<PlayerData> taskInfo, PlayerData attachment, VideoInfo videoInfo, String baseUri) {
         this.taskInfo = taskInfo;
+        this.attachment = attachment;
         this.videoInfo = videoInfo;
         this.baseUri = baseUri;
-        this.playSecond = (int) (this.taskInfo.getAttachments()[0].getHeadOffset() / 1000);
+        this.playSecond = (int) (this.attachment.getHeadOffset() / 1000);
         this.stop = this.pause = false;
         this.hasSleep = true;
         try {
@@ -47,75 +49,84 @@ public class PlayTask implements Runnable, Callable<Boolean> {
     @Override
     public void run() {
         try {
-            boolean isPassed;
-            Map<QuizConfig, OptionInfo> questions = getQuestions(taskInfo);
-            while (true)
-                try {
-                    isPassed = CXUtil.onStart(taskInfo, videoInfo);
-                    break;
-                } catch (CheckCodeException e) {
-                    if (checkCodeCallBack != null)
-                        checkCodeCallBack.call(e.getSession(), e.getUri());
-                }
-            checkCodeCallBack.print(this.videoName + "[play start]");
-            if (!isPassed) {
-                do {
-                    if (hasSleep)
-                        for (int i = 0; !stop && i < taskInfo.getDefaults().getReportTimeInterval(); i++)
-                            Thread.sleep(1000);
-                    if (stop)
-                        break;
-                    if (!pause) {
-                        checkCodeCallBack.print(this.videoName + "[play " + (int) ((float) this.playSecond / this.videoInfo.getDuration() * 100) + "%]");
-                        playSecond += taskInfo.getDefaults().getReportTimeInterval();
-                    }
-                    if (playSecond > videoInfo.getDuration()) {
-                        playSecond = videoInfo.getDuration();
-                        break;
-                    }
-                    for (Map.Entry<QuizConfig, OptionInfo> question : questions.entrySet())
-                        if (playSecond >= question.getKey().getStartTime())
-                            if (answerQuestion(question)) {
-                                questions.remove(question.getKey());
-                                System.out.println("answer success:" + question.getKey().getDescription() + "=" + question.getValue().getDescription());
-                            }
-                    while (true)
-                        try {
-                            isPassed = CXUtil.onPlayProgress(taskInfo, videoInfo, playSecond);
-                            break;
-                        } catch (CheckCodeException e) {
-                            if (checkCodeCallBack != null)
-                                checkCodeCallBack.call(e.getSession(), e.getUri());
-                        }
-                } while (pause || !isPassed);
+            acquire();
+            try {
+                boolean isPassed;
+                Map<QuizConfig, OptionInfo> questions = getQuestions(taskInfo, attachment);
                 while (true)
                     try {
-                        if (stop)
-                            CXUtil.onPause(taskInfo, videoInfo, playSecond);
-                        else
-                            CXUtil.onEnd(taskInfo, videoInfo);
+                        isPassed = CXUtil.onStart(taskInfo, attachment, videoInfo);
                         break;
                     } catch (CheckCodeException e) {
                         if (checkCodeCallBack != null)
                             checkCodeCallBack.call(e.getSession(), e.getUri());
                     }
-                checkCodeCallBack.print(this.videoName + "[play finish]");
-            } else if (!questions.isEmpty())
-                for (Map.Entry<QuizConfig, OptionInfo> question : questions.entrySet())
-                    if (answerQuestion(question)) {
-                        questions.remove(question.getKey());
-                        System.out.println("answer success:" + question.getKey().getDescription() + "=" + question.getValue().getDescription());
-                    }
-        } catch (InterruptedException e) {
-            System.out.println(e.getMessage());
+                checkCodeCallBack.print(this.videoName + "[play start]");
+                if (!isPassed) {
+                    do {
+                        if (hasSleep)
+                            for (int i = 0; !stop && i < taskInfo.getDefaults().getReportTimeInterval(); i++)
+                                Thread.sleep(1000);
+                        if (stop)
+                            break;
+                        if (!pause) {
+                            checkCodeCallBack.print(this.videoName + "[play " + (int) ((float) this.playSecond / this.videoInfo.getDuration() * 100) + "%]");
+                            playSecond += taskInfo.getDefaults().getReportTimeInterval();
+                        }
+                        if (playSecond > videoInfo.getDuration()) {
+                            playSecond = videoInfo.getDuration();
+                            break;
+                        }
+                        for (Map.Entry<QuizConfig, OptionInfo> question : questions.entrySet())
+                            if (playSecond >= question.getKey().getStartTime())
+                                if (answerQuestion(question)) {
+                                    questions.remove(question.getKey());
+                                    System.out.println("answer success:" + question.getKey().getDescription() + "=" + question.getValue().getDescription());
+                                }
+                        while (true)
+                            try {
+                                isPassed = CXUtil.onPlayProgress(taskInfo, attachment, videoInfo, playSecond);
+                                break;
+                            } catch (CheckCodeException e) {
+                                if (checkCodeCallBack != null)
+                                    checkCodeCallBack.call(e.getSession(), e.getUri());
+                            }
+                    } while (pause || !isPassed);
+                    while (true)
+                        try {
+                            if (stop)
+                                CXUtil.onPause(taskInfo, attachment, videoInfo, playSecond);
+                            else
+                                CXUtil.onEnd(taskInfo, attachment, videoInfo);
+                            break;
+                        } catch (CheckCodeException e) {
+                            if (checkCodeCallBack != null)
+                                checkCodeCallBack.call(e.getSession(), e.getUri());
+                        }
+                    checkCodeCallBack.print(this.videoName + "[play finish]");
+                } else if (!questions.isEmpty())
+                    for (Map.Entry<QuizConfig, OptionInfo> question : questions.entrySet())
+                        if (answerQuestion(question)) {
+                            questions.remove(question.getKey());
+                            System.out.println("answer success:" + question.getKey().getDescription() + "=" + question.getValue().getDescription());
+                        }
+            } catch (InterruptedException e) {
+                System.out.println(e.getMessage());
+            }
+            release();
+        } catch (InterruptedException ignored) {
         }
-        release();
     }
 
     @Override
     public Boolean call() {
         run();
         return true;
+    }
+
+    private void acquire() throws InterruptedException {
+        if (null != semaphore)
+            semaphore.acquire();
     }
 
     private void release() {
@@ -147,11 +158,11 @@ public class PlayTask implements Runnable, Callable<Boolean> {
         this.checkCodeCallBack = checkCodeCallBack;
     }
 
-    private Map<QuizConfig, OptionInfo> getQuestions(TaskInfo taskInfo) {
+    private Map<QuizConfig, OptionInfo> getQuestions(TaskInfo taskInfo, PlayerData attachment) {
         List<PlayerQuizInfo> playerQuizInfoList;
         while (true)
             try {
-                playerQuizInfoList = CXUtil.getVideoQuiz(taskInfo.getDefaults().getInitdataUrl(), taskInfo.getAttachments()[0].getMid());
+                playerQuizInfoList = CXUtil.getVideoQuiz(taskInfo.getDefaults().getInitdataUrl(), attachment.getMid());
                 break;
             } catch (CheckCodeException e) {
                 this.checkCodeCallBack.call(e.getSession(), e.getUri());
