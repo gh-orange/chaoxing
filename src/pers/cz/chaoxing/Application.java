@@ -63,11 +63,13 @@ public class Application {
                     System.out.println("Wrong account or password");
                 }
             final String baseUri = "https://mooc1-1.chaoxing.com";
-            final Semaphore semaphore = new Semaphore(4);
             System.out.print("Using fast mode (may got WARNING, suggest you DO NOT USE) [y/n]:");
             boolean hasSleep = !scanner.next().equalsIgnoreCase("y");
             System.out.print("Checking all answers to auto-complete homework (may got lower mark, store answers if not) [y/n]:");
             boolean autoComplete = scanner.next().equalsIgnoreCase("y");
+            Semaphore semaphore = null;
+            if (hasSleep)
+                semaphore = new Semaphore(4);
             System.out.print("Input size of playerThreadPool(suggest max size is 3):");
             PlayerManager playerManager = new PlayerManager(scanner.nextInt());
             playerManager.setBaseUri(baseUri);
