@@ -44,34 +44,31 @@ public class HomeworkTask implements Runnable, Callable<Boolean> {
     @Override
     public void run() {
         try {
+            checkCodeCallBack.print(this.homeworkName + "[homework start]");
+            Map<QuizConfig, List<OptionInfo>> answers = getAnswers(this.homeworkQuizInfo);
             acquire();
-            try {
-                checkCodeCallBack.print(this.homeworkName + "[homework start]");
-                Map<QuizConfig, List<OptionInfo>> answers = getAnswers(this.homeworkQuizInfo);
-                if (hasFail) {
-                    if (storeQuestion(this.homeworkQuizInfo))
-                        for (Map.Entry<QuizConfig, List<OptionInfo>> quizConfigListEntry : answers.entrySet()) {
-                            System.out.print("store success:");
-                            System.out.println(quizConfigListEntry.getKey().getDescription());
-                            for (OptionInfo optionInfo : quizConfigListEntry.getValue())
-                                System.out.println(optionInfo.getName() + "." + optionInfo.getDescription());
-                        }
-                } else if (answerQuestion(this.homeworkQuizInfo)) {
+            if (hasFail) {
+                if (storeQuestion(this.homeworkQuizInfo))
                     for (Map.Entry<QuizConfig, List<OptionInfo>> quizConfigListEntry : answers.entrySet()) {
-                        System.out.print("answer success:");
+                        System.out.print("store success:");
                         System.out.println(quizConfigListEntry.getKey().getDescription());
                         for (OptionInfo optionInfo : quizConfigListEntry.getValue())
                             System.out.println(optionInfo.getName() + "." + optionInfo.getDescription());
                     }
+            } else if (answerQuestion(this.homeworkQuizInfo)) {
+                for (Map.Entry<QuizConfig, List<OptionInfo>> quizConfigListEntry : answers.entrySet()) {
+                    System.out.print("answer success:");
+                    System.out.println(quizConfigListEntry.getKey().getDescription());
+                    for (OptionInfo optionInfo : quizConfigListEntry.getValue())
+                        System.out.println(optionInfo.getName() + "." + optionInfo.getDescription());
                 }
-                if (hasSleep)
-                    Thread.sleep(3 * 60 * 1000);
-                checkCodeCallBack.print(this.homeworkName + "[homework finish]");
-            } catch (InterruptedException | WrongAccountException e) {
-                System.out.println(e.getMessage());
             }
+            if (hasSleep)
+                Thread.sleep(3 * 60 * 1000);
+            checkCodeCallBack.print(this.homeworkName + "[homework finish]");
             release();
-        } catch (InterruptedException ignored) {
+        } catch (InterruptedException | WrongAccountException e) {
+            System.out.println(e.getMessage());
         }
     }
 

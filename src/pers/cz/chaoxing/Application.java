@@ -31,12 +31,12 @@ import java.util.concurrent.Semaphore;
 
 /**
  * @author 橙子
- * @version 1.1.2
+ * @version 1.2.0
  */
 public class Application {
 
     public static void main(String[] args) {
-        System.out.println("ChaoxingPlugin v1.1.2 - powered by orange");
+        System.out.println("ChaoxingPlugin v1.2.0 - powered by orange");
         System.out.println("License - GPLv3: This is a free & share software");
         System.out.println("You can checking source code from: https://github.com/cz111000/chaoxing");
         try {
@@ -79,6 +79,12 @@ public class Application {
             homeworkManager.setHasSleep(hasSleep);
             homeworkManager.setSemaphore(semaphore);
             homeworkManager.setAutoComplete(autoComplete);
+            System.out.print("Input size of examThreadPool(suggest max size is 1):");
+            ExamManager examManager = new ExamManager(scanner.nextInt());
+            examManager.setBaseUri(baseUri);
+            examManager.setHasSleep(hasSleep);
+            examManager.setSemaphore(semaphore);
+            examManager.setAutoComplete(autoComplete);
 //            System.out.println("Press 'p' to pause, press 's' to stop, press any key to continue");
             String classesUri = "";
             while (classesUri.isEmpty())
@@ -88,38 +94,55 @@ public class Application {
                     customCallBack.call(e.getSession(), e.getUri());
                 }
             String cardUriModel = "";
-            List<Map<String, String>> paramsList = new ArrayList<>();
-            for (String classUri : CXUtil.getClasses(classesUri))
-                for (String taskUri : CXUtil.getTasks(baseUri + classUri)) {
+            List<Map<String, String>> taskParamsList = new ArrayList<>();
+            List<Map<String, String>> classParamsList = new ArrayList<>();
+            for (String classUri : CXUtil.getClasses(classesUri)) {
+                //parse uri to params
+                String[] classUris = classUri.split("\\?", 2);
+                Map<String, String> classParams = new HashMap<>();
+                for (String param : classUris[1].split("&")) {
+                    String[] strings = param.split("=");
+                    classParams.put(strings[0], strings[1]);
+                }
+                classParamsList.add(classParams);
+                for (String taskUri : CXUtil.getTasks(baseUri, classUri)) {
                     //parse uri to params
                     String[] taskUris = taskUri.split("\\?", 2);
-                    Map<String, String> params = new HashMap<>();
+                    Map<String, String> taskParams = new HashMap<>();
                     for (String param : taskUris[1].split("&")) {
-                        String[] strings = param.split("=", 2);
-                        params.put(strings[0], strings[1]);
+                        String[] strings = param.split("=");
+                        taskParams.put(strings[0], strings[1]);
                     }
-                    paramsList.add(params);
+                    taskParamsList.add(taskParams);
                     while (cardUriModel.isEmpty())
                         try {
-                            cardUriModel = CXUtil.getCardUriModel(baseUri, taskUris[0], params);
+                            cardUriModel = CXUtil.getCardUriModel(baseUri, taskUris[0], taskParams);
                         } catch (CheckCodeException e) {
                             customCallBack.call(e.getSession(), e.getUri());
                         }
                 }
+            }
             playerManager.setCardUriModel(cardUriModel);
-            playerManager.setParamsList(paramsList);
+            playerManager.setParamsList(taskParamsList);
             playerManager.setCustomCallBack(customCallBack);
             homeworkManager.setCardUriModel(cardUriModel);
-            homeworkManager.setParamsList(paramsList);
+            homeworkManager.setParamsList(taskParamsList);
             homeworkManager.setCustomCallBack(customCallBack);
+            examManager.setCardUriModel(cardUriModel);
+            examManager.setParamsList(classParamsList);
+            examManager.setCustomCallBack(customCallBack);
             Thread playerThread = new Thread(playerManager);
             Thread homeworkThread = new Thread(homeworkManager);
+            Thread examThread = new Thread(examManager);
             playerThread.start();
             homeworkThread.start();
+            examThread.start();
             playerThread.join();
             homeworkThread.join();
+            examThread.join();
             playerManager.close();
             homeworkManager.close();
+            examManager.close();
             scanner.close();
         } catch (RequestsException e) {
             System.out.println("Net connection error");

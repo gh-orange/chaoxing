@@ -50,8 +50,8 @@ public class CXUtil {
 
     private static Session session = Requests.session();
 
-//    public static Proxy proxy = Proxies.httpProxy("10.14.36.103", 8080);
-    public static Proxy proxy = null;
+    public static Proxy proxy = Proxies.httpProxy("10.14.36.103", 8080);
+//    public static Proxy proxy = null;
 
     public static boolean login(String username, String password, String checkCode) throws WrongAccountException {
         String indexUri = session.get("http://dlnu.fy.chaoxing.com/topjs?index=1").proxy(proxy).send().readToText();
@@ -102,8 +102,8 @@ public class CXUtil {
         return document.select("div.httpsClass.Mconright a").eachAttr("href");
     }
 
-    public static List<String> getTasks(String uri) {
-        Document document = Jsoup.parse(session.get(uri).proxy(proxy).send().readToText());
+    public static List<String> getTasks(String baseUri, String uri) {
+        Document document = Jsoup.parse(session.get(baseUri + uri).proxy(proxy).send().readToText());
         /*
         return 'success'
          */
@@ -115,6 +115,11 @@ public class CXUtil {
             if (!element.select("em.orange").text().isEmpty())
                 elements.addAll(element.select("span.articlename a"));
         return elements.eachAttr("href");
+    }
+
+    public static List<String> startExam(String baseUri, String uri) {
+
+        return examUris;
     }
 
     public static String getCardUriModel(String baseUri, String uri, Map<String, String> params) throws CheckCodeException {
