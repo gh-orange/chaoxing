@@ -10,6 +10,7 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import pers.cz.chaoxing.callback.CallBack;
 import pers.cz.chaoxing.callback.impl.ExamCheckCodeCallBack;
+import pers.cz.chaoxing.exception.CheckCodeException;
 import pers.cz.chaoxing.util.CXUtil;
 import pers.cz.chaoxing.util.InfoType;
 
@@ -50,9 +51,13 @@ public class ExamManager implements Runnable {
         if (this.examThreadPoolCount > 0)
             try {
                 for (Map<String, String> params : paramsList) {
-                    if (CXUtil.startExam(baseUri, params)) {
-                        System.out.println("ok");
-                    }
+                    boolean isAllowed;
+                    while (true)
+                        try {
+                            isAllowed = CXUtil.startExam(baseUri, params);
+                        } catch (CheckCodeException e) {
+                            examCallBack.call(e.getSession(), e.getUri(), params.get(""));
+                        }
 /*                    TaskInfo<ExamData> examInfo;
                     while (true)
                         try {

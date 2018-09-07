@@ -1,5 +1,6 @@
 package pers.cz.chaoxing.callback.impl;
 
+import com.alibaba.fastjson.JSON;
 import net.dongliu.requests.RawResponse;
 import net.dongliu.requests.Session;
 import net.dongliu.requests.StatusCodes;
@@ -44,7 +45,7 @@ public class ExamCheckCodeCallBack implements CallBack<CallBackData> {
             if (openFile(checkCodePath))
                 System.out.println("CheckCode image path:" + checkCodePath);
             System.out.print("Input checkCode:");
-            callBackData = setCheckCode(this.scanner.nextLine(), param[1], param[2], param[3]);
+            callBackData = setCheckCode(this.scanner.nextLine(), param[1], param[2], param[3], param[4]);
         } while (!callBackData.isStatus());
         lock.unlock();
         return callBackData;
@@ -69,24 +70,26 @@ public class ExamCheckCodeCallBack implements CallBack<CallBackData> {
         RawResponse response = session.get(completeUri).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.NOT_FOUND || response.getStatusCode() == StatusCodes.FOUND)
             return false;
-        this.actionUri = "/img/ajaxValidate2";
+        this.actionUri = "/exam/test/getIdentifyCode";
         response.writeToFile(path);
         return true;
     }
 
-    private CallBackData setCheckCode(String checkCode, String nodeId, String clazzId, String courseId) {
+    private CallBackData setCheckCode(String checkCode, String id, String classId, String courseId, String callback) {
         Map<String, String> params = new HashMap<>();
-        params.put("code", checkCode);
+        params.put("id", id);
+        params.put("classId", classId);
+        params.put("courseId", courseId);
+        params.put("callback", callback);
+        params.put("inpCode", checkCode);
         RawResponse response = session.post(this.baseUri + this.actionUri).params(params).followRedirect(false).proxy(proxy).send();
-        CallBackData callBackData = response.readToJson(CallBackData.class);
+        String responseStr = response.readToText();
+        String begin = params.get("callback") + "(";
+        String end = ")";
+        int beginIndex = responseStr.indexOf(begin) + begin.length();
+        responseStr = responseStr.substring(beginIndex, responseStr.indexOf(end, beginIndex));
+        CallBackData callBackData = JSON.parseObject(responseStr, CallBackData.class);
         callBackData.setCode(checkCode);
-        callBackData.setStatus(session.post(this.baseUri + "/img/ajaxValidate").params(params).followRedirect(false).proxy(proxy).send().readToText().equals("true"));
-        if (callBackData.isStatus()) {
-            params.put("nodeid", nodeId);
-            params.put("clazzid", clazzId);
-            params.put("courseId", courseId);
-            callBackData.setStatus(session.get(this.baseUri + "/edit/selfservice").params(params).proxy(proxy).send().readToText().contains("true"));
-        }
         return callBackData;
     }
 

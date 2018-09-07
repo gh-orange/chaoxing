@@ -265,7 +265,7 @@ public class CXUtil {
                 case 1:
                     return true;
                 case 2:
-                    throw new CheckCodeException(session, baseUri + "/img/code");
+                    throw new CheckCodeException(session, baseUri + "/verifyCode/stuExam");
                 default:
                     break;
             }
