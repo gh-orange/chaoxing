@@ -1,20 +1,12 @@
 package pers.cz.chaoxing.thread;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONException;
-import com.alibaba.fastjson.JSONObject;
 import net.dongliu.requests.exception.RequestsException;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 import pers.cz.chaoxing.callback.CallBack;
+import pers.cz.chaoxing.callback.CallBackData;
 import pers.cz.chaoxing.callback.impl.ExamCheckCodeCallBack;
 import pers.cz.chaoxing.exception.CheckCodeException;
 import pers.cz.chaoxing.util.CXUtil;
-import pers.cz.chaoxing.util.InfoType;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -31,11 +23,11 @@ public class ExamManager implements Runnable {
     private int examThreadCount = 0;
     private List<Map<String, String>> paramsList;
     private String baseUri;
-    private String cardUriModel;
+    private String examUriModel;
     private boolean hasSleep;
     private boolean autoComplete;
     private CallBack<?> customCallBack;
-    private CallBack<?> examCallBack;
+    private CallBack<CallBackData> examCallBack;
 
     public ExamManager(int examThreadPoolCount) {
         this.examThreadPoolCount = examThreadPoolCount;
@@ -51,17 +43,24 @@ public class ExamManager implements Runnable {
         if (this.examThreadPoolCount > 0)
             try {
                 for (Map<String, String> params : paramsList) {
+
+                    //todo
+//                    CXUtil.getExamInfo();
+
+
                     boolean isAllowed;
-                    while (true)
-                        try {
-                            isAllowed = CXUtil.startExam(baseUri, params);
-                        } catch (CheckCodeException e) {
-                            examCallBack.call(e.getSession(), e.getUri(), params.get(""));
-                        }
+                    try {
+                        isAllowed = CXUtil.startExam(baseUri, params);
+                    } catch (CheckCodeException e) {
+                        String enc = examCallBack.call(e.getSession(), e.getUri(), params.get("id"), params.get("classId"), params.get("courseId"), "callback").getEnc();
+                        System.out.println(enc);
+                        isAllowed = true;
+                    }
+                    System.out.println(isAllowed);
 /*                    TaskInfo<ExamData> examInfo;
                     while (true)
                         try {
-                            examInfo = CXUtil.getTaskInfo(baseUri, cardUriModel, params, InfoType.exam);
+                            examInfo = CXUtil.getTaskInfo(baseUri, examUriModel, params, InfoType.exam);
                             break;
                         } catch (CheckCodeException e) {
                             customCallBack.call(e.getSession(), e.getUri());
@@ -69,7 +68,7 @@ public class ExamManager implements Runnable {
                     for (ExamData attachment : examInfo.getAttachments()) {
                         while (true)
                             try {
-                                ExamQuizInfo examQuizInfo = CXUtil.getexamQuiz(baseUri, examInfo, attachment);
+                                ExamQuizInfo examQuizInfo = CXUtil.getExamQuiz(baseUri, examInfo, attachment);
                                 if (examQuizInfo.getDatas().length > 0 && !examQuizInfo.getDatas()[0].isAnswered()) {
                                     String examName = attachment.getProperty().getTitle();
                                     System.out.println("exam did not pass:" + examName);
@@ -87,8 +86,6 @@ public class ExamManager implements Runnable {
                                 customCallBack.call(e.getSession(), e.getUri());
                             }
                     }*/
-
-
                 }
             } catch (RequestsException e) {
                 System.out.println("Net connection error");
@@ -115,8 +112,8 @@ public class ExamManager implements Runnable {
         this.baseUri = baseUri;
     }
 
-    public void setCardUriModel(String cardUriModel) {
-        this.cardUriModel = cardUriModel;
+    public void setExamUriModel(String examUriModel) {
+        this.examUriModel = examUriModel;
     }
 
     public void setSemaphore(Semaphore semaphore) {

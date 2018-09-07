@@ -82,7 +82,7 @@ public class ExamCheckCodeCallBack implements CallBack<CallBackData> {
         params.put("courseId", courseId);
         params.put("callback", callback);
         params.put("inpCode", checkCode);
-        RawResponse response = session.post(this.baseUri + this.actionUri).params(params).followRedirect(false).proxy(proxy).send();
+        RawResponse response = session.get(this.baseUri + this.actionUri).params(params).followRedirect(false).proxy(proxy).send();
         String responseStr = response.readToText();
         String begin = params.get("callback") + "(";
         String end = ")";

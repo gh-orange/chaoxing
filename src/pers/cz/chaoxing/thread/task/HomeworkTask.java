@@ -28,7 +28,7 @@ public class HomeworkTask implements Runnable, Callable<Boolean> {
     private boolean hasFail;
     private boolean hasSleep;
     private boolean autoComplete;
-    private CallBack<?> checkCodeCallBack;
+    private CallBack<CallBackData> checkCodeCallBack;
 
     public HomeworkTask(TaskInfo<HomeworkData> taskInfo, HomeworkData attachment, HomeworkQuizInfo homeworkQuizInfo, String baseUri) {
         this.taskInfo = taskInfo;
@@ -100,7 +100,7 @@ public class HomeworkTask implements Runnable, Callable<Boolean> {
         this.autoComplete = autoComplete;
     }
 
-    public void setCheckCodeCallBack(CallBack<?> checkCodeCallBack) {
+    public void setCheckCodeCallBack(CallBack<CallBackData> checkCodeCallBack) {
         this.checkCodeCallBack = checkCodeCallBack;
     }
 
@@ -136,7 +136,7 @@ public class HomeworkTask implements Runnable, Callable<Boolean> {
                 break;
             } catch (CheckCodeException e) {
                 if (checkCodeCallBack != null)
-                    homeworkQuizInfo.setEnc(((CallBackData) checkCodeCallBack.call(e.getSession(), e.getUri(), taskInfo.getDefaults().getKnowledgeid(), homeworkQuizInfo.getClassId(), homeworkQuizInfo.getCourseId())).getEnc());
+                    homeworkQuizInfo.setEnc(checkCodeCallBack.call(e.getSession(), e.getUri(), taskInfo.getDefaults().getKnowledgeid(), homeworkQuizInfo.getClassId(), homeworkQuizInfo.getCourseId()).getEnc());
             }
         return isPassed;
     }
@@ -149,7 +149,7 @@ public class HomeworkTask implements Runnable, Callable<Boolean> {
                 break;
             } catch (CheckCodeException e) {
                 if (checkCodeCallBack != null)
-                    homeworkQuizInfo.setEnc(((CallBackData) checkCodeCallBack.call(e.getSession(), e.getUri(), taskInfo.getDefaults().getKnowledgeid(), homeworkQuizInfo.getClassId(), homeworkQuizInfo.getCourseId())).getEnc());
+                    homeworkQuizInfo.setEnc(checkCodeCallBack.call(e.getSession(), e.getUri(), taskInfo.getDefaults().getKnowledgeid(), homeworkQuizInfo.getClassId(), homeworkQuizInfo.getCourseId()).getEnc());
             }
         return isPassed;
     }

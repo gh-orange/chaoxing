@@ -2,6 +2,7 @@ package pers.cz.chaoxing.thread;
 
 import net.dongliu.requests.exception.RequestsException;
 import pers.cz.chaoxing.callback.CallBack;
+import pers.cz.chaoxing.callback.CallBackData;
 import pers.cz.chaoxing.callback.impl.HomeworkCheckCodeCallBack;
 import pers.cz.chaoxing.common.quiz.HomeworkQuizInfo;
 import pers.cz.chaoxing.common.task.HomeworkData;
@@ -31,7 +32,7 @@ public class HomeworkManager implements Runnable {
     private boolean hasSleep;
     private boolean autoComplete;
     private CallBack<?> customCallBack;
-    private CallBack<?> homeworkCallBack;
+    private CallBack<CallBackData> homeworkCallBack;
 
     public HomeworkManager(int homeworkThreadPoolCount) {
         this.homeworkThreadPoolCount = homeworkThreadPoolCount;

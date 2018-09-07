@@ -16,10 +16,7 @@ import pers.cz.chaoxing.common.quiz.HomeworkQuizInfo;
 import pers.cz.chaoxing.common.quiz.OptionInfo;
 import pers.cz.chaoxing.common.quiz.PlayerQuizInfo;
 import pers.cz.chaoxing.common.quiz.QuizConfig;
-import pers.cz.chaoxing.common.task.HomeworkData;
-import pers.cz.chaoxing.common.task.PlayerData;
-import pers.cz.chaoxing.common.task.TaskData;
-import pers.cz.chaoxing.common.task.TaskInfo;
+import pers.cz.chaoxing.common.task.*;
 import pers.cz.chaoxing.exception.CheckCodeException;
 import pers.cz.chaoxing.exception.WrongAccountException;
 
@@ -118,38 +115,9 @@ public class CXUtil {
         return elements.eachAttr("href");
     }
 
-    public static List<Map<String, String>> getExams(String baseUri, Map<String, String> params) {
-        String classId = params.get("clazzid");
-        params.put("classId", classId);
-        params.put("ut", "s");
-        Document document = Jsoup.parse(session.get(baseUri + "/exam/test").params(params).proxy(proxy).send().readToText());
-        Elements lis = document.selectFirst("div.ulDiv ul").getElementsByTag("li");
-        String moocTeacherId = document.getElementById("moocTeacherId").val();
-        String begin = "(";
-        String end = ")";
-        List<Map<String, String>> examParamsList = new ArrayList<>();
-        for (Element li : lis) {
-            Element titleText = li.selectFirst("div.titTxt");
-            Element examElement = titleText.selectFirst("p a");
-            String title = examElement.attr("title");
-            String text = titleText.wholeText();
-            text = text.substring(text.indexOf("状态："));
-            if (text.contains("待做")) {
-                String paramStr = examElement.attr("onclick");
-                int beginIndex = paramStr.indexOf(begin) + begin.length();
-                paramStr = paramStr.substring(beginIndex, paramStr.indexOf(end, beginIndex));
-                String[] funcParams = paramStr.split(",");
-                HashMap<String, String> examParams = new HashMap<>();
-                examParams.put("courseId", funcParams[0].replaceAll("'", ""));
-                examParams.put("id", funcParams[1].isEmpty() ? "0" : funcParams[1]);
-                examParams.put("classId", classId);
-                examParams.put("endTime", funcParams[3]);
-                examParams.put("moocTeacherId", moocTeacherId);
-                examParams.put("title", title);
-                examParamsList.add(examParams);
-            }
-        }
-        return examParamsList;
+    public static List<String> getExams(String baseUri, String uri) {
+        Document document = Jsoup.parse(session.get(baseUri + uri).proxy(proxy).send().readToText());
+        return document.select("div.navshow ul li a:contains(考试)").eachAttr("data");
     }
 
     public static String getCardUriModel(String baseUri, String uri, Map<String, String> params) throws CheckCodeException {
@@ -248,6 +216,43 @@ public class CXUtil {
         }
     }
 
+    public static TaskInfo<ExamData> getExamInfo(String baseUri, Map<String, String> params) {
+        String classId = params.get("clazzid");
+        params.put("classId", classId);
+        params.put("ut", "s");
+        Document document = Jsoup.parse(session.get(baseUri + "/exam/test").params(params).proxy(proxy).send().readToText());
+        Elements lis = document.selectFirst("div.ulDiv ul").getElementsByTag("li");
+        String moocTeacherId = document.getElementById("moocTeacherId").val();
+        String begin = "(";
+        String end = ")";
+        TaskInfo<ExamData> examInfo = new TaskInfo<>();
+        examInfo.setAttachments(new ExamData[lis.size()]);
+        for (Element li : lis) {
+            Element titleText = li.selectFirst("div.titTxt");
+            Element examElement = titleText.selectFirst("p a");
+            String title = examElement.attr("title");
+            String text = titleText.wholeText();
+            text = text.substring(text.indexOf("状态："));
+            boolean answered = text.contains("待做");
+            String paramStr = examElement.attr("onclick");
+            int beginIndex = paramStr.indexOf(begin) + begin.length();
+            paramStr = paramStr.substring(beginIndex, paramStr.indexOf(end, beginIndex));
+            String[] funcParams = paramStr.split(",");
+            HashMap<String, String> examParams = new HashMap<>();
+            examParams.put("courseId", funcParams[0].replaceAll("'", ""));
+            examParams.put("id", funcParams[1].isEmpty() ? "0" : funcParams[1]);
+            examParams.put("classId", classId);
+            examParams.put("endTime", funcParams[3]);
+            examParams.put("moocTeacherId", moocTeacherId);
+            examParams.put("title", title);
+
+            //todo
+
+
+        }
+        return examInfo;
+    }
+
     public static VideoInfo getVideoInfo(String baseUri, String uri, String objectId, String fid) {
         Map<String, String> params = new HashMap<>();
         params.put("k", fid);
@@ -261,7 +266,7 @@ public class CXUtil {
             switch (result.getInteger("status")) {
                 case 0:
                     System.out.println("Exam need finishStandard:" + params.get("title") + "[" + result.getInteger("finishStandard") + "%]");
-                    return false;
+                    break;
                 case 1:
                     return true;
                 case 2:
