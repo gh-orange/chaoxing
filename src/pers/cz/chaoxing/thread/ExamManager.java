@@ -10,11 +10,6 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import pers.cz.chaoxing.callback.CallBack;
 import pers.cz.chaoxing.callback.impl.ExamCheckCodeCallBack;
-import pers.cz.chaoxing.common.quiz.examQuizInfo;
-import pers.cz.chaoxing.common.task.examData;
-import pers.cz.chaoxing.common.task.TaskInfo;
-import pers.cz.chaoxing.exception.CheckCodeException;
-import pers.cz.chaoxing.thread.task.examTask;
 import pers.cz.chaoxing.util.CXUtil;
 import pers.cz.chaoxing.util.InfoType;
 
@@ -55,53 +50,10 @@ public class ExamManager implements Runnable {
         if (this.examThreadPoolCount > 0)
             try {
                 for (Map<String, String> params : paramsList) {
-                    String classId = params.get("clazzid");
-                    params.put("classId", classId);
-                    params.put("ut", "s");
-                    Document document = Jsoup.parse(session.get(baseUri + "/exam/test").params(params).proxy(proxy).send().readToText());
-                    Elements lis = document.selectFirst("div.ulDiv ul").getElementsByTag("li");
-                    String moocTeacherId = document.getElementById("moocTeacherId").val();
-                    String begin = "(";
-                    String end = ")";
-                    for (Element li : lis) {
-                        Element examElement = li.selectFirst("div.titTxt p a");
-                        String title = examElement.attr("title");
-                        String paramStr = examElement.attr("onclick");
-                        int beginIndex = paramStr.indexOf(begin) + begin.length();
-                        paramStr = paramStr.substring(beginIndex, paramStr.indexOf(end, beginIndex));
-                        String[] funcParams = paramStr.split(",");
-                        params.clear();
-                        params.put("courseId", funcParams[0].replaceAll("'", ""));
-                        params.put("id", funcParams[1].isEmpty() ? "0" : funcParams[1]);
-                        params.put("classId", classId);
-                        params.put("endTime", funcParams[3]);
-                        params.put("moocTeacherId", moocTeacherId);
-                        try {
-                            JSONObject result = JSON.parseObject(session.get(baseUri + "/exam/test/isExpire").params(params).proxy(proxy).send().readToText());
-                            switch (result.getInteger("status")) {
-                                case 0:
-                                    System.out.println("Exam need finishStandard:" + title + "[" + result.getInteger("finishStandard") + "%]");
-                                    break;
-                                case 1:
-                                    examUris.add("");
-                                    break;
-                                case 2:
-//                    throw new CheckCodeException(session, baseUri + "/img/code");
-                                    break;
-                                default:
-                                    break;
-                            }
-                        } catch (JSONException ignored) {
-                        }
+                    if (CXUtil.startExam(baseUri, params)) {
+                        System.out.println("ok");
                     }
-
-
-
-
-
-
-
-                    TaskInfo<ExamData> examInfo;
+/*                    TaskInfo<ExamData> examInfo;
                     while (true)
                         try {
                             examInfo = CXUtil.getTaskInfo(baseUri, cardUriModel, params, InfoType.exam);
@@ -129,7 +81,9 @@ public class ExamManager implements Runnable {
                             } catch (CheckCodeException e) {
                                 customCallBack.call(e.getSession(), e.getUri());
                             }
-                    }
+                    }*/
+
+
                 }
             } catch (RequestsException e) {
                 System.out.println("Net connection error");

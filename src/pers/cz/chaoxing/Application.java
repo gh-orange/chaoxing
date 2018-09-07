@@ -95,16 +95,8 @@ public class Application {
                 }
             String cardUriModel = "";
             List<Map<String, String>> taskParamsList = new ArrayList<>();
-            List<Map<String, String>> classParamsList = new ArrayList<>();
+            List<Map<String, String>> examParamsList = new ArrayList<>();
             for (String classUri : CXUtil.getClasses(classesUri)) {
-                //parse uri to params
-                String[] classUris = classUri.split("\\?", 2);
-                Map<String, String> classParams = new HashMap<>();
-                for (String param : classUris[1].split("&")) {
-                    String[] strings = param.split("=");
-                    classParams.put(strings[0], strings[1]);
-                }
-                classParamsList.add(classParams);
                 for (String taskUri : CXUtil.getTasks(baseUri, classUri)) {
                     //parse uri to params
                     String[] taskUris = taskUri.split("\\?", 2);
@@ -121,6 +113,14 @@ public class Application {
                             customCallBack.call(e.getSession(), e.getUri());
                         }
                 }
+                //parse uri to params
+                String[] classUris = classUri.split("\\?", 2);
+                Map<String, String> classParams = new HashMap<>();
+                for (String param : classUris[1].split("&")) {
+                    String[] strings = param.split("=");
+                    classParams.put(strings[0], strings[1]);
+                }
+                examParamsList.addAll(CXUtil.getExams(baseUri, classParams));
             }
             playerManager.setCardUriModel(cardUriModel);
             playerManager.setParamsList(taskParamsList);
@@ -129,7 +129,7 @@ public class Application {
             homeworkManager.setParamsList(taskParamsList);
             homeworkManager.setCustomCallBack(customCallBack);
             examManager.setCardUriModel(cardUriModel);
-            examManager.setParamsList(classParamsList);
+            examManager.setParamsList(examParamsList);
             examManager.setCustomCallBack(customCallBack);
             Thread playerThread = new Thread(playerManager);
             Thread homeworkThread = new Thread(homeworkManager);
