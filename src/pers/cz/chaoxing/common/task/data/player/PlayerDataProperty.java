@@ -1,4 +1,6 @@
-package pers.cz.chaoxing.common.task;
+package pers.cz.chaoxing.common.task.data.player;
+
+import pers.cz.chaoxing.common.task.data.TaskDataProperty;
 
 public class PlayerDataProperty extends TaskDataProperty {
     private boolean switchwindow;

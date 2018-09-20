@@ -5,7 +5,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 public class LimitedBlockingQueue<T> extends LinkedBlockingQueue<T> {
     private static final long serialVersionUID = -2336409730666428037L;
 
-    LimitedBlockingQueue(int maxSize) {
+    public LimitedBlockingQueue(int maxSize) {
         super(maxSize);
     }
 

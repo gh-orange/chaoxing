@@ -1,4 +1,6 @@
-package pers.cz.chaoxing.common.task;
+package pers.cz.chaoxing.common.task.data.player;
+
+import pers.cz.chaoxing.common.task.data.TaskData;
 
 public class PlayerData extends TaskData<PlayerDataProperty> {
     private long headOffset;

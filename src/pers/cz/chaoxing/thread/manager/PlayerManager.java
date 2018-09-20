@@ -1,11 +1,12 @@
-package pers.cz.chaoxing.thread;
+package pers.cz.chaoxing.thread.manager;
 
 import net.dongliu.requests.exception.RequestsException;
 import pers.cz.chaoxing.callback.CallBack;
 import pers.cz.chaoxing.common.VideoInfo;
-import pers.cz.chaoxing.common.task.PlayerData;
+import pers.cz.chaoxing.common.task.data.player.PlayerData;
 import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.exception.CheckCodeException;
+import pers.cz.chaoxing.thread.LimitedBlockingQueue;
 import pers.cz.chaoxing.thread.task.PlayTask;
 import pers.cz.chaoxing.util.CXUtil;
 import pers.cz.chaoxing.util.InfoType;
@@ -71,7 +72,8 @@ public class PlayerManager implements Runnable {
                                 }
                                 System.out.println("Video did not pass:" + videoName);
                                 char[] charArray = attachment.getType().toCharArray();
-                                charArray[0] -= 32;
+                                if (charArray[0] >= 'A' && charArray[0] <= 'Z')
+                                    charArray[0] -= 32;
                                 attachment.setType(String.valueOf(charArray));
                                 PlayTask playTask = new PlayTask(playerInfo, attachment, videoInfo, baseUri);
                                 playTask.setCheckCodeCallBack(customCallBack);

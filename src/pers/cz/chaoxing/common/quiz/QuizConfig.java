@@ -15,6 +15,7 @@ public class QuizConfig {
     extra data
      */
     private String answerCheck;
+    private String score;
 
     public String getMemberinfo() {
         return memberinfo;
@@ -102,6 +103,14 @@ public class QuizConfig {
 
     public void setAnswerCheck(String answerCheck) {
         this.answerCheck = answerCheck;
+    }
+
+    public String getScore() {
+        return score;
+    }
+
+    public void setScore(String score) {
+        this.score = score;
     }
 
 }

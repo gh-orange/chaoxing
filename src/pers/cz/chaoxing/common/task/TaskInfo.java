@@ -1,5 +1,7 @@
 package pers.cz.chaoxing.common.task;
 
+import pers.cz.chaoxing.common.task.data.TaskData;
+
 public class TaskInfo<T extends TaskData> {
     private T[] attachments;
     private TaskConfig defaults;

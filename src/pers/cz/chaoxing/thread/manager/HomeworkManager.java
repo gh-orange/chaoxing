@@ -1,13 +1,14 @@
-package pers.cz.chaoxing.thread;
+package pers.cz.chaoxing.thread.manager;
 
 import net.dongliu.requests.exception.RequestsException;
 import pers.cz.chaoxing.callback.CallBack;
 import pers.cz.chaoxing.callback.CallBackData;
 import pers.cz.chaoxing.callback.impl.HomeworkCheckCodeCallBack;
 import pers.cz.chaoxing.common.quiz.HomeworkQuizInfo;
-import pers.cz.chaoxing.common.task.HomeworkData;
+import pers.cz.chaoxing.common.task.data.homework.HomeworkData;
 import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.exception.CheckCodeException;
+import pers.cz.chaoxing.thread.LimitedBlockingQueue;
 import pers.cz.chaoxing.thread.task.HomeworkTask;
 import pers.cz.chaoxing.util.CXUtil;
 import pers.cz.chaoxing.util.InfoType;
@@ -61,8 +62,8 @@ public class HomeworkManager implements Runnable {
                     for (HomeworkData attachment : homeworkInfo.getAttachments()) {
                         while (true)
                             try {
-                                HomeworkQuizInfo homeworkQuizInfo = CXUtil.getHomeworkQuiz(baseUri, homeworkInfo, attachment);
-                                if (homeworkQuizInfo.getDatas().length > 0 && !homeworkQuizInfo.getDatas()[0].isAnswered()) {
+                                HomeworkQuizInfo homeworkQuizInfo = CXUtil.getHomeworkQuizzes(baseUri, homeworkInfo, attachment);
+                                if (!homeworkQuizInfo.isPassed()) {
                                     String homeworkName = attachment.getProperty().getTitle();
                                     System.out.println("Homework did not pass:" + homeworkName);
                                     HomeworkTask homeworkTask = new HomeworkTask(homeworkInfo, attachment, homeworkQuizInfo, baseUri);

@@ -3,7 +3,7 @@ package pers.cz.chaoxing.thread.task;
 import pers.cz.chaoxing.callback.CallBack;
 import pers.cz.chaoxing.common.quiz.OptionInfo;
 import pers.cz.chaoxing.common.quiz.QuizConfig;
-import pers.cz.chaoxing.common.task.PlayerData;
+import pers.cz.chaoxing.common.task.data.player.PlayerData;
 import pers.cz.chaoxing.common.quiz.PlayerQuizInfo;
 import pers.cz.chaoxing.common.VideoInfo;
 import pers.cz.chaoxing.common.task.TaskInfo;
@@ -162,7 +162,7 @@ public class PlayTask implements Runnable, Callable<Boolean> {
         List<PlayerQuizInfo> playerQuizInfoList;
         while (true)
             try {
-                playerQuizInfoList = CXUtil.getVideoQuiz(taskInfo.getDefaults().getInitdataUrl(), attachment.getMid());
+                playerQuizInfoList = CXUtil.getPlayerQuizzes(taskInfo.getDefaults().getInitdataUrl(), attachment.getMid());
                 break;
             } catch (CheckCodeException e) {
                 this.checkCodeCallBack.call(e.getSession(), e.getUri());
@@ -184,7 +184,7 @@ public class PlayTask implements Runnable, Callable<Boolean> {
         boolean isPassed;
         while (true)
             try {
-                isPassed = CXUtil.answerVideoQuiz(baseUri, question.getKey().getValidationUrl(), question.getKey().getResourceId(), question.getValue().getName());
+                isPassed = CXUtil.answerPlayerQuiz(baseUri, question.getKey().getValidationUrl(), question.getKey().getResourceId(), question.getValue().getName());
                 break;
             } catch (CheckCodeException e) {
                 if (checkCodeCallBack != null)

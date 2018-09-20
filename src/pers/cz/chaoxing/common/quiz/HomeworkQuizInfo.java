@@ -18,6 +18,7 @@ public class HomeworkQuizInfo {
     private String enc_work;
     private String userId;
     private String answerwqbid;
+    private boolean isPassed;
 
     public QuizConfig[] getDatas() {
         return datas;
@@ -153,5 +154,13 @@ public class HomeworkQuizInfo {
 
     public void setAnswerwqbid(String answerwqbid) {
         this.answerwqbid = answerwqbid;
+    }
+
+    public boolean isPassed() {
+        return isPassed;
+    }
+
+    public void setPassed(boolean passed) {
+        isPassed = passed;
     }
 }

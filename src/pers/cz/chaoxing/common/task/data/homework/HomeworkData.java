@@ -1,4 +1,6 @@
-package pers.cz.chaoxing.common.task;
+package pers.cz.chaoxing.common.task.data.homework;
+
+import pers.cz.chaoxing.common.task.data.TaskData;
 
 public class HomeworkData extends TaskData<HomeworkDataProperty> {
     private String enc;

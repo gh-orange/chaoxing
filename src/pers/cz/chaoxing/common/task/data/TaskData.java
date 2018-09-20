@@ -1,6 +1,6 @@
-package pers.cz.chaoxing.common.task;
+package pers.cz.chaoxing.common.task.data;
 
-public class TaskData<T extends TaskDataProperty> {
+public abstract class TaskData<T extends TaskDataProperty> {
     private String jobid;
     private String otherInfo;
     private T property;

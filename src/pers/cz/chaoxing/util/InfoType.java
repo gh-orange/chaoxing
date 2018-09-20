@@ -2,7 +2,8 @@ package pers.cz.chaoxing.util;
 
 public enum InfoType {
     Video(0),
-    Homework(1);
+    Homework(1),
+    Exam(2);
 
     private final int id;
 

@@ -1,11 +1,17 @@
-package pers.cz.chaoxing.thread;
+package pers.cz.chaoxing.thread.manager;
 
 import net.dongliu.requests.exception.RequestsException;
 import pers.cz.chaoxing.callback.CallBack;
 import pers.cz.chaoxing.callback.CallBackData;
 import pers.cz.chaoxing.callback.impl.ExamCheckCodeCallBack;
+import pers.cz.chaoxing.common.quiz.ExamQuizInfo;
+import pers.cz.chaoxing.common.task.data.exam.ExamData;
+import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.exception.CheckCodeException;
+import pers.cz.chaoxing.thread.LimitedBlockingQueue;
+import pers.cz.chaoxing.thread.task.ExamTask;
 import pers.cz.chaoxing.util.CXUtil;
+import pers.cz.chaoxing.util.InfoType;
 
 import java.util.List;
 import java.util.Map;
@@ -43,49 +49,44 @@ public class ExamManager implements Runnable {
         if (this.examThreadPoolCount > 0)
             try {
                 for (Map<String, String> params : paramsList) {
-
-                    //todo
-//                    CXUtil.getExamInfo();
-
-
-                    boolean isAllowed;
-                    try {
-                        isAllowed = CXUtil.startExam(baseUri, params);
-                    } catch (CheckCodeException e) {
-                        String enc = examCallBack.call(e.getSession(), e.getUri(), params.get("id"), params.get("classId"), params.get("courseId"), "callback").getEnc();
-                        System.out.println(enc);
-                        isAllowed = true;
-                    }
-                    System.out.println(isAllowed);
-/*                    TaskInfo<ExamData> examInfo;
+                    TaskInfo<ExamData> examInfo;
                     while (true)
                         try {
-                            examInfo = CXUtil.getTaskInfo(baseUri, examUriModel, params, InfoType.exam);
+                            examInfo = CXUtil.getTaskInfo(baseUri, examUriModel, params, InfoType.Exam);
                             break;
                         } catch (CheckCodeException e) {
                             customCallBack.call(e.getSession(), e.getUri());
                         }
                     for (ExamData attachment : examInfo.getAttachments()) {
-                        while (true)
-                            try {
-                                ExamQuizInfo examQuizInfo = CXUtil.getExamQuiz(baseUri, examInfo, attachment);
-                                if (examQuizInfo.getDatas().length > 0 && !examQuizInfo.getDatas()[0].isAnswered()) {
-                                    String examName = attachment.getProperty().getTitle();
-                                    System.out.println("exam did not pass:" + examName);
-                                    ExamTask examTask = new ExamTask(examInfo, attachment, examQuizInfo, baseUri);
-                                    examTask.setCheckCodeCallBack(examCallBack);
-                                    examTask.setHasSleep(hasSleep);
-                                    examTask.setSemaphore(semaphore);
-                                    examTask.setAutoComplete(autoComplete);
-                                    examCompletionService.submit(examTask);
-                                    examThreadCount++;
-                                    System.out.println("Added examTask to ThreadPool:" + examName);
+                        if (!attachment.isPassed()) {
+                            while (true)
+                                try {
+                                    boolean isAllowed;
+                                    try {
+                                        isAllowed = CXUtil.startExam(baseUri, examInfo, attachment);
+                                    } catch (CheckCodeException e) {
+                                        attachment.setEnc(examCallBack.call(e.getSession(), e.getUri(), attachment.getProperty().gettId(), examInfo.getDefaults().getClazzId(), examInfo.getDefaults().getCourseid(), "callback").getEnc());
+                                        isAllowed = true;
+                                    }
+                                    if (isAllowed) {
+                                        ExamQuizInfo examQuizInfo = CXUtil.getExamQuizzes(baseUri, examInfo, attachment);
+                                        String examName = attachment.getProperty().getTitle();
+                                        System.out.println("exam did not pass:" + examName);
+                                        ExamTask examTask = new ExamTask(examInfo, attachment, examQuizInfo, baseUri);
+                                        examTask.setCheckCodeCallBack(examCallBack);
+                                        examTask.setHasSleep(hasSleep);
+                                        examTask.setSemaphore(semaphore);
+                                        examTask.setAutoComplete(autoComplete);
+                                        examCompletionService.submit(examTask);
+                                        examThreadCount++;
+                                        System.out.println("Added examTask to ThreadPool:" + examName);
+                                    }
+                                    break;
+                                } catch (CheckCodeException e) {
+                                    customCallBack.call(e.getSession(), e.getUri());
                                 }
-                                break;
-                            } catch (CheckCodeException e) {
-                                customCallBack.call(e.getSession(), e.getUri());
-                            }
-                    }*/
+                        }
+                    }
                 }
             } catch (RequestsException e) {
                 System.out.println("Net connection error");

@@ -1,6 +1,6 @@
-package pers.cz.chaoxing.common.task;
+package pers.cz.chaoxing.common.task.data;
 
-public class TaskDataProperty {
+public abstract class TaskDataProperty {
     private String jobid;
     private String module;
     private String mid;

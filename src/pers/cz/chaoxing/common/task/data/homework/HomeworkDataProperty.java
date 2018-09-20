@@ -1,6 +1,8 @@
-package pers.cz.chaoxing.common.task;
+package pers.cz.chaoxing.common.task.data.homework;
 
-public class ExamDataProperty extends TaskDataProperty {
+import pers.cz.chaoxing.common.task.data.TaskDataProperty;
+
+public class HomeworkDataProperty extends TaskDataProperty {
     private String worktype;
     private String workid;
     private String title;

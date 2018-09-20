@@ -4,7 +4,9 @@ import net.dongliu.requests.exception.RequestsException;
 import pers.cz.chaoxing.callback.impl.CustomCheckCodeCallBack;
 import pers.cz.chaoxing.exception.CheckCodeException;
 import pers.cz.chaoxing.exception.WrongAccountException;
-import pers.cz.chaoxing.thread.*;
+import pers.cz.chaoxing.thread.manager.ExamManager;
+import pers.cz.chaoxing.thread.manager.HomeworkManager;
+import pers.cz.chaoxing.thread.manager.PlayerManager;
 import pers.cz.chaoxing.thread.task.PlayTask;
 import pers.cz.chaoxing.util.CXUtil;
 
@@ -65,7 +67,7 @@ public class Application {
             final String baseUri = "https://mooc1-1.chaoxing.com";
             System.out.print("Using fast mode (may got WARNING, suggest you DO NOT USE) [y/n]:");
             boolean hasSleep = !scanner.next().equalsIgnoreCase("y");
-            System.out.print("Checking all answers to auto-complete homework (may got lower mark, store answers if not) [y/n]:");
+            System.out.print("Checking all answers to auto-complete homework&exam (may got lower mark, store answers if not) [y/n]:");
             boolean autoComplete = scanner.next().equalsIgnoreCase("y");
             Semaphore semaphore = hasSleep ? new Semaphore(4) : null;
             System.out.print("Input size of playerThreadPool(suggest max size is 3):");
@@ -123,7 +125,8 @@ public class Application {
                         examParams.put(strings[0], strings[1]);
                     }
                     examParamsList.add(examParams);
-                    examUriModel = examUris[0];
+                    if (examUriModel.isEmpty())
+                        examUriModel = examUris[0];
                 }
             }
             playerManager.setCardUriModel(cardUriModel);
