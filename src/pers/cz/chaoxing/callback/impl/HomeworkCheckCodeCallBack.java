@@ -61,10 +61,6 @@ public class HomeworkCheckCodeCallBack implements CallBack<CallBackData> {
         return uri.substring(0, uri.indexOf('/', uri.indexOf("://") + "://".length()));
     }
 
-    public String getCheckCodePath() {
-        return checkCodePath;
-    }
-
     private boolean saveCheckCode(String path) {
         RawResponse response = session.get(completeUri).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.NOT_FOUND || response.getStatusCode() == StatusCodes.FOUND)

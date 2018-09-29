@@ -2,7 +2,7 @@ package pers.cz.chaoxing.common.task.data.homework;
 
 import pers.cz.chaoxing.common.task.data.TaskData;
 
-public class HomeworkData extends TaskData<HomeworkDataProperty> {
+public class HomeworkTaskData extends TaskData<HomeworkDataProperty> {
     private String enc;
     private boolean job;
     private String utEnc;

@@ -1,9 +1,9 @@
 # ChaoxingPlugin
 [![Build Status](https://travis-ci.org/cz111000/chaoxing.svg?branch=master)](https://travis-ci.org/cz111000/chaoxing)
 
-A hands-free tool for watching video and doing homework faster
+A hands-free tool for watching video and doing homework&exam faster
 
-It can auto playing video and doing homework on background. The only you need to do is pressing your account, password and checkCode.
+It can auto playing video and doing homework&exam on background. The only you need to do is pressing your account, password and checkCode.
 
 Enjoy your days, aha!
 

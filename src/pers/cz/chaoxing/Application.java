@@ -14,31 +14,31 @@ import java.util.*;
 import java.util.concurrent.Semaphore;
 
 /**
- * ChaoxingPlugin - A hands-free tool for watching video and doing homework faster
+ * ChaoxingPlugin - A hands-free tool for watching video and doing homework&exam faster
  * Copyright (C) 2018  orange
  * <p>
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
+ * it under the terms once the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 once the License, or
  * any later version.
  * <p>
  * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * but WITHOUT ANY WARRANTY; without even the implied warranty once
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  * <p>
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy once the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 /**
  * @author 橙子
- * @version 1.2.0
+ * @version 1.2.2
  */
 public class Application {
 
     public static void main(String[] args) {
-        System.out.println("ChaoxingPlugin v1.2.0 - powered by orange");
+        System.out.println("ChaoxingPlugin v1.2.2 - powered by orange");
         System.out.println("License - GPLv3: This is a free & share software");
         System.out.println("You can checking source code from: https://github.com/cz111000/chaoxing");
         try {
@@ -104,10 +104,9 @@ public class Application {
                     //parse uri to params
                     String[] taskUris = taskUri.split("\\?", 2);
                     Map<String, String> taskParams = new HashMap<>();
-                    for (String param : taskUris[1].split("&")) {
-                        String[] strings = param.split("=");
-                        taskParams.put(strings[0], strings[1]);
-                    }
+                    Arrays.stream(taskUris[1].split("&"))
+                            .map(param -> param.split("="))
+                            .forEach(strings -> taskParams.put(strings[0], strings[1]));
                     taskParamsList.add(taskParams);
                     while (cardUriModel.isEmpty())
                         try {
@@ -120,22 +119,21 @@ public class Application {
                     //parse uri to params
                     String[] examUris = examUri.split("\\?", 2);
                     Map<String, String> examParams = new HashMap<>();
-                    for (String param : examUris[1].split("&")) {
-                        String[] strings = param.split("=");
-                        examParams.put(strings[0], strings[1]);
-                    }
+                    Arrays.stream(examUris[1].split("&"))
+                            .map(param -> param.split("="))
+                            .forEach(strings -> examParams.put(strings[0], strings[1]));
                     examParamsList.add(examParams);
                     if (examUriModel.isEmpty())
                         examUriModel = examUris[0];
                 }
             }
-            playerManager.setCardUriModel(cardUriModel);
+            playerManager.setUriModel(cardUriModel);
             playerManager.setParamsList(taskParamsList);
             playerManager.setCustomCallBack(customCallBack);
-            homeworkManager.setCardUriModel(cardUriModel);
+            homeworkManager.setUriModel(cardUriModel);
             homeworkManager.setParamsList(taskParamsList);
             homeworkManager.setCustomCallBack(customCallBack);
-            examManager.setExamUriModel(examUriModel);
+            examManager.setUriModel(examUriModel);
             examManager.setParamsList(examParamsList);
             examManager.setCustomCallBack(customCallBack);
             Thread playerThread = new Thread(playerManager);

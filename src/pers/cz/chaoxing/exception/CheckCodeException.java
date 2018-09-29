@@ -2,7 +2,7 @@ package pers.cz.chaoxing.exception;
 
 import net.dongliu.requests.Session;
 
-public class CheckCodeException extends Throwable {
+public class CheckCodeException extends Exception {
     private Session session;
     private String uri;
 

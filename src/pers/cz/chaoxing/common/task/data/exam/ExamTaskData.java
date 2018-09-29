@@ -2,7 +2,7 @@ package pers.cz.chaoxing.common.task.data.exam;
 
 import pers.cz.chaoxing.common.task.data.TaskData;
 
-public class ExamData extends TaskData<ExamDataProperty> {
+public class ExamTaskData extends TaskData<ExamDataProperty> {
     private String enc;
     private boolean isPassed;
 

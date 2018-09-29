@@ -1,9 +1,18 @@
-package pers.cz.chaoxing.common.quiz;
+package pers.cz.chaoxing.common;
 
 public class OptionInfo {
     private boolean isRight;
     private String name;
     private String description;
+
+    public OptionInfo() {
+    }
+
+    public OptionInfo(OptionInfo optionInfo) {
+        this.isRight = optionInfo.isRight;
+        this.name = optionInfo.name;
+        this.description = optionInfo.description;
+    }
 
     public boolean isRight() {
         return isRight;

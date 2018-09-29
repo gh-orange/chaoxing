@@ -2,7 +2,7 @@ package pers.cz.chaoxing.common.task.data.player;
 
 import pers.cz.chaoxing.common.task.data.TaskData;
 
-public class PlayerData extends TaskData<PlayerDataProperty> {
+public class PlayerTaskData extends TaskData<PlayerDataProperty> {
     private long headOffset;
     private boolean isPassed;
     private long playTime;

@@ -1,38 +1,30 @@
-package pers.cz.chaoxing.common.quiz;
+package pers.cz.chaoxing.common.quiz.data.exam;
 
-public class ExamQuizInfo {
-    private QuizConfig[] datas;
-    private String courseId;
+/**
+ * @author 橙子
+ * @date 2018/9/23
+ */
+public class ExamQuizConfig {
+    private String userId;
     private String classId;
+    private String courseId;
     private String tId;
     private String testUserRelationId;
-    private String testPaperId;
-    private String paperId;
-    private String subCount;
     private String examsystem;
     private String enc;
-    private String userId;
     private boolean tempSave;
     private boolean timeOver;
-    private boolean randomOptions;
+    private int start;
     private int remainTime;
     private int encRemainTime;
     private long encLastUpdateTime;
 
-    public QuizConfig[] getDatas() {
-        return datas;
+    public String getUserId() {
+        return userId;
     }
 
-    public void setDatas(QuizConfig[] datas) {
-        this.datas = datas;
-    }
-
-    public String getCourseId() {
-        return courseId;
-    }
-
-    public void setCourseId(String courseId) {
-        this.courseId = courseId;
+    public void setUserId(String userId) {
+        this.userId = userId;
     }
 
     public String getClassId() {
@@ -41,6 +33,14 @@ public class ExamQuizInfo {
 
     public void setClassId(String classId) {
         this.classId = classId;
+    }
+
+    public String getCourseId() {
+        return courseId;
+    }
+
+    public void setCourseId(String courseId) {
+        this.courseId = courseId;
     }
 
     public String gettId() {
@@ -59,30 +59,6 @@ public class ExamQuizInfo {
         this.testUserRelationId = testUserRelationId;
     }
 
-    public String getTestPaperId() {
-        return testPaperId;
-    }
-
-    public void setTestPaperId(String testPaperId) {
-        this.testPaperId = testPaperId;
-    }
-
-    public String getPaperId() {
-        return paperId;
-    }
-
-    public void setPaperId(String paperId) {
-        this.paperId = paperId;
-    }
-
-    public String getSubCount() {
-        return subCount;
-    }
-
-    public void setSubCount(String subCount) {
-        this.subCount = subCount;
-    }
-
     public String getExamsystem() {
         return examsystem;
     }
@@ -97,14 +73,6 @@ public class ExamQuizInfo {
 
     public void setEnc(String enc) {
         this.enc = enc;
-    }
-
-    public String getUserId() {
-        return userId;
-    }
-
-    public void setUserId(String userId) {
-        this.userId = userId;
     }
 
     public boolean isTempSave() {
@@ -123,12 +91,12 @@ public class ExamQuizInfo {
         this.timeOver = timeOver;
     }
 
-    public boolean isRandomOptions() {
-        return randomOptions;
+    public int getStart() {
+        return start;
     }
 
-    public void setRandomOptions(boolean randomOptions) {
-        this.randomOptions = randomOptions;
+    public void setStart(int start) {
+        this.start = start;
     }
 
     public int getRemainTime() {
