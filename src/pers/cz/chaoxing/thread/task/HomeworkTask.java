@@ -1,6 +1,5 @@
 package pers.cz.chaoxing.thread.task;
 
-import pers.cz.chaoxing.common.quiz.data.QuizData;
 import pers.cz.chaoxing.common.quiz.QuizInfo;
 import pers.cz.chaoxing.common.quiz.data.homework.HomeworkQuizConfig;
 import pers.cz.chaoxing.common.quiz.data.homework.HomeworkQuizData;
@@ -26,29 +25,37 @@ public class HomeworkTask extends Task<HomeworkTaskData> {
     @Override
     public void doTask() throws Exception {
         checkCodeCallBack.print(this.taskName + "[homework start]");
-        Map<QuizData, List<OptionInfo>> answers = getAnswers(this.homeworkQuizInfo);
+        Map<HomeworkQuizData, List<OptionInfo>> answers = getAnswers(this.homeworkQuizInfo);
         if (hasFail) {
-            if (storeQuestion(this.homeworkQuizInfo))
+            if (storeQuestion(this.homeworkQuizInfo.getDefaults(), answers))
+                answers.entrySet().stream()
+                        .filter(entry -> !entry.getValue().isEmpty())
+                        .forEach(entry -> {
+                            System.out.print("store success:");
+                            System.out.println(entry.getKey().getDescription());
+                            entry.getValue().forEach(optionInfo -> System.out.println(optionInfo.getName() + "." + optionInfo.getDescription()));
+                        });
+        } else {
+            this.homeworkQuizInfo.setPassed(answerQuestion(this.homeworkQuizInfo.getDefaults(), answers));
+            if (this.homeworkQuizInfo.isPassed())
                 answers.forEach((key, value) -> {
-                    System.out.print("store success:");
+                    System.out.print("answer success:");
                     System.out.println(key.getDescription());
                     value.forEach(optionInfo -> System.out.println(optionInfo.getName() + "." + optionInfo.getDescription()));
                 });
-        } else if (answerQuestion(this.homeworkQuizInfo))
-            answers.forEach((key, value) -> {
-                System.out.print("answer success:");
-                System.out.println(key.getDescription());
-                value.forEach(optionInfo -> System.out.println(optionInfo.getName() + "." + optionInfo.getDescription()));
-            });
+        }
         if (hasSleep)
             Thread.sleep(3 * 60 * 1000);
-        checkCodeCallBack.print(this.taskName + "[homework finish]");
+        if (this.homeworkQuizInfo.isPassed())
+            checkCodeCallBack.print(this.taskName + "[homework answer finish]");
+        else
+            checkCodeCallBack.print(this.taskName + "[homework store finish]");
     }
 
-    protected Map<QuizData, List<OptionInfo>> getAnswers(QuizInfo quizInfo) {
-        Map<QuizData, List<OptionInfo>> questions = new HashMap<>();
-        Arrays.stream(quizInfo.getDatas()).forEach(quizData -> {
-            CXUtil.getQuizAnswer(quizData).forEach(questions.computeIfAbsent(quizData, key -> new ArrayList<>())::add);
+    protected Map<HomeworkQuizData, List<OptionInfo>> getAnswers(QuizInfo quizInfo) {
+        Map<HomeworkQuizData, List<OptionInfo>> questions = new HashMap<>();
+        Arrays.stream(((HomeworkQuizData[]) quizInfo.getDatas())).forEach(quizData -> {
+            CXUtil.getQuizAnswer(quizData).forEach(optionInfo -> questions.computeIfAbsent(quizData, key -> new ArrayList<>()).add(optionInfo));
             if (!questions.containsKey(quizData)) {
                 System.out.println(taskName + " homework answer match failure:");
                 System.out.println(quizData.getDescription());
@@ -60,23 +67,23 @@ public class HomeworkTask extends Task<HomeworkTaskData> {
             }
             if (questions.containsKey(quizData))
                 quizData.setAnswered(false);
-            else if (quizData.isAnswered())
+            else
                 questions.put(quizData, Arrays.stream(quizData.getOptions()).filter(OptionInfo::isRight).collect(Collectors.toList()));
         });
         return questions;
     }
 
-    private boolean storeQuestion(QuizInfo<HomeworkQuizData, HomeworkQuizConfig> homeworkQuizInfo) throws WrongAccountException {
-        boolean isPassed = Try.ever(() -> CXUtil.storeHomeworkQuiz(baseUri, homeworkQuizInfo), checkCodeCallBack, homeworkQuizInfo.getDefaults(), taskInfo.getDefaults().getKnowledgeid(), homeworkQuizInfo.getDefaults().getClassId(), homeworkQuizInfo.getDefaults().getCourseId());
+    private boolean storeQuestion(HomeworkQuizConfig defaults, Map<HomeworkQuizData, List<OptionInfo>> answers) throws WrongAccountException {
+        boolean isPassed = Try.ever(() -> CXUtil.storeHomeworkQuiz(baseUri, defaults, answers), checkCodeCallBack, homeworkQuizInfo.getDefaults(), taskInfo.getDefaults().getKnowledgeid(), homeworkQuizInfo.getDefaults().getClassId(), homeworkQuizInfo.getDefaults().getCourseId());
         if (isPassed)
-            Arrays.stream(homeworkQuizInfo.getDatas()).forEach(homeworkQuizData -> homeworkQuizData.setAnswered(true));
+            answers.keySet().forEach(homeworkQuizData -> homeworkQuizData.setAnswered(true));
         return isPassed;
     }
 
-    private boolean answerQuestion(QuizInfo<HomeworkQuizData, HomeworkQuizConfig> homeworkQuizInfo) throws WrongAccountException {
-        boolean isPassed = Try.ever(() -> CXUtil.answerHomeworkQuiz(baseUri, homeworkQuizInfo), checkCodeCallBack, homeworkQuizInfo.getDefaults(), taskInfo.getDefaults().getKnowledgeid(), homeworkQuizInfo.getDefaults().getClassId(), homeworkQuizInfo.getDefaults().getCourseId());
+    private boolean answerQuestion(HomeworkQuizConfig defaults, Map<HomeworkQuizData, List<OptionInfo>> answers) throws WrongAccountException {
+        boolean isPassed = Try.ever(() -> CXUtil.answerHomeworkQuiz(baseUri, defaults, answers), checkCodeCallBack, defaults, defaults.getKnowledgeid(), defaults.getClassId(), defaults.getCourseId());
         if (isPassed)
-            Arrays.stream(homeworkQuizInfo.getDatas()).forEach(homeworkQuizData -> homeworkQuizData.setAnswered(true));
+            answers.keySet().forEach(homeworkQuizData -> homeworkQuizData.setAnswered(true));
         return isPassed;
     }
 }

@@ -138,15 +138,15 @@ public class Application {
             examManager.setCustomCallBack(customCallBack);
             Thread playerThread = new Thread(playerManager);
             Thread homeworkThread = new Thread(homeworkManager);
-            Thread examThread = new Thread(examManager);
             playerThread.start();
             homeworkThread.start();
-            examThread.start();
             playerThread.join();
             homeworkThread.join();
-            examThread.join();
             playerManager.close();
             homeworkManager.close();
+            Thread examThread = new Thread(examManager);
+            examThread.start();
+            examThread.join();
             examManager.close();
             scanner.close();
         } catch (RequestsException e) {

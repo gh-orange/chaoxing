@@ -390,54 +390,74 @@ public class CXUtil {
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(session, src);
         String responseStr = response.readToText();
-        Elements elements = Jsoup.parse(responseStr).select("div.CeYan");
-        FormElement form = elements.select("form#form1").forms().get(0);
-        Elements questions = form.select("div.TiMu");
+        Element element = Jsoup.parse(responseStr).selectFirst("div.CeYan");
+        Element form = element.selectFirst("form#form1");
+        Elements questions = element.select("div.TiMu");
         String beginStr = "= \"";
         String endStr = "\"";
         int beginIndex = responseStr.lastIndexOf(beginStr, responseStr.indexOf("$(\"#answerwqbid\")")) + beginStr.length();
         QuizInfo<HomeworkQuizData, HomeworkQuizConfig> homeworkQuizInfo = new QuizInfo<>();
         homeworkQuizInfo.setDefaults(new HomeworkQuizConfig());
         homeworkQuizInfo.setDatas(new HomeworkQuizData[questions.size()]);
-        homeworkQuizInfo.setPassed(!elements.select("div.ZyTop h3 span").text().contains("待做"));
-        homeworkQuizInfo.getDefaults().setUserId(form.getElementById("userId").val());
-        homeworkQuizInfo.getDefaults().setClassId(form.getElementById("classId").val());
-        homeworkQuizInfo.getDefaults().setCourseId(form.getElementById("courseId").val());
-        homeworkQuizInfo.getDefaults().setJobid(form.getElementById("jobid").val());
-        homeworkQuizInfo.getDefaults().setOldWorkId(form.getElementById("oldWorkId").val());
-        homeworkQuizInfo.getDefaults().setOldSchoolId(form.getElementById("oldSchoolId").val());
-        homeworkQuizInfo.getDefaults().setKnowledgeid(form.getElementById("knowledgeid").val());
-        homeworkQuizInfo.getDefaults().setAnswerwqbid(responseStr.substring(beginIndex, responseStr.indexOf(endStr, beginIndex)));
-        homeworkQuizInfo.getDefaults().setWorkAnswerId(form.getElementById("workAnswerId").val());
-        homeworkQuizInfo.getDefaults().setWorkRelationId(form.getElementById("workRelationId").val());
-        homeworkQuizInfo.getDefaults().setApi(form.getElementById("api").val());
-        homeworkQuizInfo.getDefaults().setPyFlag(form.getElementById("pyFlag").val());
-        homeworkQuizInfo.getDefaults().setFullScore(form.getElementById("fullScore").val());
-        homeworkQuizInfo.getDefaults().setTotalQuestionNum(form.getElementById("totalQuestionNum").val());
-        homeworkQuizInfo.getDefaults().setEnc(form.getElementById("enc").val());
-        homeworkQuizInfo.getDefaults().setEnc_work(form.getElementById("enc_work").val());
+        homeworkQuizInfo.setPassed(!element.select("div.ZyTop h3 span").text().contains("待做"));
+        if (homeworkQuizInfo.isPassed()) {
+            homeworkQuizInfo.getDefaults().setUserId(taskInfo.getDefaults().getUserid());
+            homeworkQuizInfo.getDefaults().setClassId(taskInfo.getDefaults().getClazzId());
+            homeworkQuizInfo.getDefaults().setCourseId(taskInfo.getDefaults().getCourseid());
+            homeworkQuizInfo.getDefaults().setJobid(attachment.getJobid());
+            homeworkQuizInfo.getDefaults().setOldWorkId(attachment.getProperty().getWorkid());
+            homeworkQuizInfo.getDefaults().setKnowledgeid(taskInfo.getDefaults().getKnowledgeid());
+            homeworkQuizInfo.getDefaults().setTotalQuestionNum(String.valueOf(questions.size()));
+            homeworkQuizInfo.getDefaults().setEnc(attachment.getEnc());
+            homeworkQuizInfo.getDefaults().setEnc_work(attachment.getUtEnc());
+        } else {
+            homeworkQuizInfo.getDefaults().setUserId(element.getElementById("userId").val());
+            homeworkQuizInfo.getDefaults().setClassId(element.getElementById("classId").val());
+            homeworkQuizInfo.getDefaults().setCourseId(element.getElementById("courseId").val());
+            homeworkQuizInfo.getDefaults().setJobid(element.getElementById("jobid").val());
+            homeworkQuizInfo.getDefaults().setOldWorkId(element.getElementById("oldWorkId").val());
+            homeworkQuizInfo.getDefaults().setOldSchoolId(element.getElementById("oldSchoolId").val());
+            homeworkQuizInfo.getDefaults().setKnowledgeid(element.getElementById("knowledgeid").val());
+            homeworkQuizInfo.getDefaults().setAnswerwqbid(responseStr.substring(beginIndex, responseStr.indexOf(endStr, beginIndex)));
+            homeworkQuizInfo.getDefaults().setWorkAnswerId(element.getElementById("workAnswerId").val());
+            homeworkQuizInfo.getDefaults().setWorkRelationId(element.getElementById("workRelationId").val());
+            homeworkQuizInfo.getDefaults().setApi(element.getElementById("api").val());
+            homeworkQuizInfo.getDefaults().setPyFlag(element.getElementById("pyFlag").val());
+            homeworkQuizInfo.getDefaults().setFullScore(element.getElementById("fullScore").val());
+            homeworkQuizInfo.getDefaults().setTotalQuestionNum(element.getElementById("totalQuestionNum").val());
+            homeworkQuizInfo.getDefaults().setEnc(element.getElementById("enc").val());
+            homeworkQuizInfo.getDefaults().setEnc_work(element.getElementById("enc_work").val());
+        }
         IntStream.range(0, questions.size()).forEach(i -> {
             homeworkQuizInfo.getDatas()[i] = new HomeworkQuizData();
-            homeworkQuizInfo.getDatas()[i].setAnswered(false);
-            homeworkQuizInfo.getDatas()[i].setValidationUrl(baseUri + "/work/" + form.attr("action"));
+            homeworkQuizInfo.getDatas()[i].setAnswered(homeworkQuizInfo.isPassed());
+            if (null != form)
+                homeworkQuizInfo.getDatas()[i].setValidationUrl(baseUri + "/work/" + form.attr("action"));
+            else
+                homeworkQuizInfo.getDatas()[i].setValidationUrl(baseUri + "/work/" + questions.get(i).selectFirst("form[id~=questionErrorForm]").attr("action"));
             Element inputAnswerType = questions.get(i).select("input[id~=answertype]").first();
-            Element inputAnswerCheck = inputAnswerType.previousElementSibling();
-            homeworkQuizInfo.getDatas()[i].setAnswerTypeId(inputAnswerType.id());
-            if (inputAnswerCheck.tagName().equals("input"))
-                homeworkQuizInfo.getDatas()[i].setAnswerCheckName(inputAnswerCheck.attr("name"));
+            if (null != inputAnswerType) {
+                Element inputAnswerCheck = inputAnswerType.previousElementSibling();
+                homeworkQuizInfo.getDatas()[i].setAnswerTypeId(inputAnswerType.id());
+                if (inputAnswerCheck.tagName().equals("input"))
+                    homeworkQuizInfo.getDatas()[i].setAnswerCheckName(inputAnswerCheck.attr("name"));
+                homeworkQuizInfo.getDatas()[i].setQuestionType(inputAnswerType.val());
+            }
             homeworkQuizInfo.getDatas()[i].setDescription(questions.get(i).select("div.Zy_TItle div.clearfix").first().text());
-            homeworkQuizInfo.getDatas()[i].setQuestionType(inputAnswerType.val());
             Elements lis = questions.get(i).getElementsByTag("ul").first().getElementsByTag("li");
             homeworkQuizInfo.getDatas()[i].setOptions(new OptionInfo[lis.size()]);
             IntStream.range(0, lis.size()).forEach(j -> {
                 Element inputAnswer = lis.get(j).selectFirst("label input");
-                if (homeworkQuizInfo.getDatas()[i].getAnswerId() == null || homeworkQuizInfo.getDatas()[i].getAnswerId().isEmpty())
-                    homeworkQuizInfo.getDatas()[i].setAnswerId(inputAnswer.attr("name"));
                 homeworkQuizInfo.getDatas()[i].getOptions()[j] = new OptionInfo();
-                homeworkQuizInfo.getDatas()[i].getOptions()[j].setRight(inputAnswer.hasAttr("checked"));
-                if (homeworkQuizInfo.getDatas()[i].getOptions()[j].isRight())
-                    homeworkQuizInfo.getDatas()[i].setAnswered(true);
-                homeworkQuizInfo.getDatas()[i].getOptions()[j].setName(inputAnswer.val());
+                if (null != inputAnswer) {
+                    if (homeworkQuizInfo.getDatas()[i].getAnswerId() == null || homeworkQuizInfo.getDatas()[i].getAnswerId().isEmpty())
+                        homeworkQuizInfo.getDatas()[i].setAnswerId(inputAnswer.attr("name"));
+                    homeworkQuizInfo.getDatas()[i].getOptions()[j].setRight(inputAnswer.hasAttr("checked"));
+                    if (homeworkQuizInfo.getDatas()[i].getOptions()[j].isRight())
+                        homeworkQuizInfo.getDatas()[i].setAnswered(true);
+                    homeworkQuizInfo.getDatas()[i].getOptions()[j].setName(inputAnswer.val());
+                } else
+                    homeworkQuizInfo.getDatas()[i].getOptions()[j].setName(lis.get(j).selectFirst("i").text().replaceAll("、", ""));
                 if (!lis.isEmpty())
                     homeworkQuizInfo.getDatas()[i].getOptions()[j].setDescription(lis.get(j).select("a").text());
                 if (homeworkQuizInfo.getDatas()[i].getOptions()[j].getDescription() == null || homeworkQuizInfo.getDatas()[i].getOptions()[j].getDescription().isEmpty())
@@ -516,14 +536,14 @@ public class CXUtil {
         return examQuizInfo;
     }
 
-    public static boolean storeHomeworkQuiz(String baseUri, QuizInfo<HomeworkQuizData, HomeworkQuizConfig> homeworkQuizInfo) throws CheckCodeException, WrongAccountException {
-        homeworkQuizInfo.getDefaults().setPyFlag("1");
-        return answerHomeworkQuiz(baseUri, homeworkQuizInfo);
+    public static boolean storeHomeworkQuiz(String baseUri, HomeworkQuizConfig defaults, Map<HomeworkQuizData, List<OptionInfo>> answers) throws CheckCodeException, WrongAccountException {
+        defaults.setPyFlag("1");
+        return answerHomeworkQuiz(baseUri, defaults, answers);
     }
 
-    public static boolean storeExamQuiz(QuizInfo<ExamQuizData, ExamQuizConfig> examQuizInfo) throws CheckCodeException {
-        examQuizInfo.getDefaults().setTempSave(true);
-        return answerExamQuiz(examQuizInfo);
+    public static boolean storeExamQuiz(ExamQuizConfig defaults, Map<ExamQuizData, List<OptionInfo>> answers) throws CheckCodeException {
+        defaults.setTempSave(true);
+        return answerExamQuiz(defaults, answers);
     }
 
     public static boolean answerPlayerQuiz(String baseUri, String validationUrl, String resourceId, String answer) throws CheckCodeException {
@@ -621,15 +641,21 @@ public class CXUtil {
      * return __e()
      * };
      */
-    public static boolean answerHomeworkQuiz(String baseUri, QuizInfo<HomeworkQuizData, HomeworkQuizConfig> homeworkQuizInfo) throws CheckCodeException, WrongAccountException {
+    public static boolean answerHomeworkQuiz(String baseUri, HomeworkQuizConfig defaults, Map<HomeworkQuizData, List<OptionInfo>> answers) throws CheckCodeException, WrongAccountException {
+        HomeworkQuizData first = null;
+        Iterator<HomeworkQuizData> iterator = answers.keySet().iterator();
+        if (iterator.hasNext())
+            first = iterator.next();
+        if (null == first)
+            return false;
         Map<String, String> params = new HashMap<>();
-        params.put("courseId", homeworkQuizInfo.getDefaults().getCourseId());
-        params.put("classId", homeworkQuizInfo.getDefaults().getClassId());
+        params.put("courseId", defaults.getCourseId());
+        params.put("classId", defaults.getClassId());
         /*
         cache false
          */
 //        params.put("_", String.valueOf(System.currentTimeMillis()));
-        if (homeworkQuizInfo.getDefaults().getEnc() == null || homeworkQuizInfo.getDefaults().getEnc().isEmpty())
+        if (defaults.getEnc() == null || defaults.getEnc().isEmpty())
             switch (JSONObject.parseObject(session.get(baseUri + "/work/validate").params(params).followRedirect(false).proxy(proxy).send().readToText()).getInteger("status")) {
                 case 1:
                     throw new WrongAccountException();
@@ -641,7 +667,7 @@ public class CXUtil {
                     return false;
             }
         int version = 1;
-        Matcher matcher = Pattern.compile("version=(\\d)").matcher(homeworkQuizInfo.getDatas()[0].getValidationUrl());
+        Matcher matcher = Pattern.compile("version=(\\d)").matcher(first.getValidationUrl());
         if (matcher.find())
             version += Integer.valueOf(matcher.group(1));
         params.clear();
@@ -654,7 +680,7 @@ public class CXUtil {
         int pageWidth = 898;
         int pageHeight = 687;
         String value = "(" + pageWidth + "|" + pageHeight + ")";
-        String uwId = homeworkQuizInfo.getDefaults().getUserId() + "_" + homeworkQuizInfo.getDefaults().getWorkRelationId();
+        String uwId = defaults.getUserId() + "_" + defaults.getWorkRelationId();
 //        if (uwId == null)
 //            uwId = "axvP^&Sg";
         int uwIdLength = uwId.length() / 2 + ((uwId.length() % 2 == 0) ? 0 : 1);
@@ -683,45 +709,43 @@ public class CXUtil {
         params.put("pos", pos.toString());
         params.put("rd", String.valueOf(random));
         params.put("value", value);
-        params.put("wid", homeworkQuizInfo.getDefaults().getWorkRelationId());
+        params.put("wid", defaults.getWorkRelationId());
 //        }
         //endregion
         Map<String, String> body = new IdentityHashMap<>();
-        body.put("pyFlag", homeworkQuizInfo.getDefaults().getPyFlag());
-        body.put("courseId", homeworkQuizInfo.getDefaults().getCourseId());
-        body.put("classId", homeworkQuizInfo.getDefaults().getClassId());
-        body.put("api", homeworkQuizInfo.getDefaults().getApi());
-        body.put("workAnswerId", homeworkQuizInfo.getDefaults().getWorkAnswerId());
-        body.put("totalQuestionNum", homeworkQuizInfo.getDefaults().getTotalQuestionNum());
-        body.put("fullScore", homeworkQuizInfo.getDefaults().getFullScore());
-        body.put("knowledgeid", homeworkQuizInfo.getDefaults().getKnowledgeid());
-        body.put("oldSchoolId", homeworkQuizInfo.getDefaults().getOldSchoolId());
-        body.put("oldWorkId", homeworkQuizInfo.getDefaults().getOldWorkId());
-        body.put("jobid", homeworkQuizInfo.getDefaults().getJobid());
-        body.put("workRelationId", homeworkQuizInfo.getDefaults().getWorkRelationId());
-        body.put("enc", homeworkQuizInfo.getDefaults().getEnc());
-        body.put("enc_work", homeworkQuizInfo.getDefaults().getEnc_work());
-        body.put("userId", homeworkQuizInfo.getDefaults().getUserId());
-        body.put("answerwqbid", homeworkQuizInfo.getDefaults().getAnswerwqbid());
-        Arrays.stream(homeworkQuizInfo.getDatas()).forEach(homeworkQuizData -> {
+        body.put("pyFlag", defaults.getPyFlag());
+        body.put("courseId", defaults.getCourseId());
+        body.put("classId", defaults.getClassId());
+        body.put("api", defaults.getApi());
+        body.put("workAnswerId", defaults.getWorkAnswerId());
+        body.put("totalQuestionNum", defaults.getTotalQuestionNum());
+        body.put("fullScore", defaults.getFullScore());
+        body.put("knowledgeid", defaults.getKnowledgeid());
+        body.put("oldSchoolId", defaults.getOldSchoolId());
+        body.put("oldWorkId", defaults.getOldWorkId());
+        body.put("jobid", defaults.getJobid());
+        body.put("workRelationId", defaults.getWorkRelationId());
+        body.put("enc", defaults.getEnc());
+        body.put("enc_work", defaults.getEnc_work());
+        body.put("userId", defaults.getUserId());
+        body.put("answerwqbid", defaults.getAnswerwqbid());
+        answers.forEach((homeworkQuizData, options) -> {
             StringBuilder answerStr = new StringBuilder();
-            Arrays.stream(homeworkQuizData.getOptions())
-                    .filter(OptionInfo::isRight)
-                    .forEach(optionInfo -> {
-                        body.put(new String(homeworkQuizData.getAnswerId().getBytes()), optionInfo.getName());
-                        if (null != homeworkQuizData.getAnswerCheckName() && !homeworkQuizData.getAnswerCheckName().isEmpty())
-                            answerStr.append(optionInfo.getName());
-                    });
+            options.forEach(optionInfo -> {
+                body.put(new String(homeworkQuizData.getAnswerId().getBytes()), optionInfo.getName());
+                if (null != homeworkQuizData.getAnswerCheckName() && !homeworkQuizData.getAnswerCheckName().isEmpty())
+                    answerStr.append(optionInfo.getName());
+            });
             if (null != homeworkQuizData.getAnswerCheckName() && !homeworkQuizData.getAnswerCheckName().isEmpty())
                 body.put(homeworkQuizData.getAnswerCheckName(), answerStr.toString());
             if (homeworkQuizData.getAnswerTypeId() != null && !homeworkQuizData.getAnswerTypeId().isEmpty())
                 body.put(homeworkQuizData.getAnswerTypeId(), homeworkQuizData.getQuestionType());
         });
-        RawResponse response = session.post(homeworkQuizInfo.getDatas()[0].getValidationUrl()).params(params).body(body).followRedirect(false).proxy(proxy).send();
+        RawResponse response = session.post(first.getValidationUrl()).params(params).body(body).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(session, response.getHeader("location"));
         String responseStr = response.readToText();
-        return !responseStr.contains("提交失败");
+        return !responseStr.contains("提交失败") && !responseStr.contains("false");
     }
 
     /**
@@ -813,18 +837,24 @@ public class CXUtil {
      * return __e()
      * };
      */
-    public static boolean answerExamQuiz(QuizInfo<ExamQuizData, ExamQuizConfig> examQuizInfo) throws CheckCodeException {
+    public static boolean answerExamQuiz(ExamQuizConfig defaults, Map<ExamQuizData, List<OptionInfo>> answers) throws CheckCodeException {
+        ExamQuizData first = null;
+        Iterator<ExamQuizData> iterator = answers.keySet().iterator();
+        if (iterator.hasNext())
+            first = iterator.next();
+        if (null == first)
+            return false;
         HashMap<String, String> params = new HashMap<>();
-        params.put("tempSave", examQuizInfo.getDefaults().isTempSave() ? "true" : "false");
+        params.put("tempSave", defaults.isTempSave() ? "true" : "false");
         int version = 1;
-        Matcher matcher = Pattern.compile("version=(\\d)").matcher(examQuizInfo.getDatas()[examQuizInfo.getDefaults().getStart()].getValidationUrl());
+        Matcher matcher = Pattern.compile("version=(\\d)").matcher(first.getValidationUrl());
         if (matcher.find())
             version += Integer.valueOf(matcher.group(1));
         params.put("version", String.valueOf(version));
         int pageWidth = 898;
         int pageHeight = 687;
         String value = "(" + pageWidth + "|" + pageHeight + ")";
-        String uwId = examQuizInfo.getDefaults().getUserId() + "_" + examQuizInfo.getDatas()[examQuizInfo.getDefaults().getStart()].getQuestionId();
+        String uwId = defaults.getUserId() + "_" + first.getQuestionId();
 //        if (uwId == null)
 //            uwId = "axvP^&Sg";
         int uwIdLength = uwId.length() / 2 + ((uwId.length() % 2 == 0) ? 0 : 1);
@@ -853,49 +883,49 @@ public class CXUtil {
         params.put("pos", pos.toString());
         params.put("rd", String.valueOf(random));
         params.put("value", value);
-        params.put("qid", examQuizInfo.getDatas()[examQuizInfo.getDefaults().getStart()].getQuestionId());
+        params.put("qid", first.getQuestionId());
         HashMap<String, String> body = new HashMap<>();
-        body.put("userId", examQuizInfo.getDefaults().getUserId());
-        body.put("classId", examQuizInfo.getDefaults().getClassId());
-        body.put("courseId", examQuizInfo.getDefaults().getCourseId());
-        body.put("tId", examQuizInfo.getDefaults().gettId());
-        body.put("testUserRelationId", examQuizInfo.getDefaults().getTestUserRelationId());
-        body.put("examsystem", examQuizInfo.getDefaults().getExamsystem());
-        body.put("enc", examQuizInfo.getDefaults().getEnc());
-        body.put("tempSave", examQuizInfo.getDefaults().isTempSave() ? "true" : "false");
-        body.put("timeOver", examQuizInfo.getDefaults().isTimeOver() ? "true" : "false");
-        body.put("remainTime", String.valueOf(examQuizInfo.getDefaults().getRemainTime()));
-        body.put("encRemainTime", String.valueOf(examQuizInfo.getDefaults().getEncRemainTime()));
-        body.put("encLastUpdateTime", String.valueOf(examQuizInfo.getDefaults().getEncLastUpdateTime()));
-        body.put("type", examQuizInfo.getDatas()[examQuizInfo.getDefaults().getStart()].getQuestionType());
-        body.put("start", String.valueOf(examQuizInfo.getDefaults().getStart()));
-        body.put("paperId", examQuizInfo.getDatas()[examQuizInfo.getDefaults().getStart()].getPaperId());
-        body.put("testPaperId", examQuizInfo.getDatas()[examQuizInfo.getDefaults().getStart()].getTestPaperId());
-        body.put("subCount", examQuizInfo.getDatas()[examQuizInfo.getDefaults().getStart()].getSubCount());
-        body.put("randomOptions", examQuizInfo.getDatas()[examQuizInfo.getDefaults().getStart()].isRandomOptions() ? "true" : "false");
-        body.put("questionId", examQuizInfo.getDatas()[examQuizInfo.getDefaults().getStart()].getQuestionId());
-        body.put("questionScore", examQuizInfo.getDatas()[examQuizInfo.getDefaults().getStart()].getQuestionScore());
+        body.put("userId", defaults.getUserId());
+        body.put("classId", defaults.getClassId());
+        body.put("courseId", defaults.getCourseId());
+        body.put("tId", defaults.gettId());
+        body.put("testUserRelationId", defaults.getTestUserRelationId());
+        body.put("examsystem", defaults.getExamsystem());
+        body.put("enc", defaults.getEnc());
+        body.put("tempSave", defaults.isTempSave() ? "true" : "false");
+        body.put("timeOver", defaults.isTimeOver() ? "true" : "false");
+        body.put("remainTime", String.valueOf(defaults.getRemainTime()));
+        body.put("encRemainTime", String.valueOf(defaults.getEncRemainTime()));
+        body.put("encLastUpdateTime", String.valueOf(defaults.getEncLastUpdateTime()));
+        body.put("type", first.getQuestionType());
+        body.put("start", String.valueOf(defaults.getStart()));
+        body.put("paperId", first.getPaperId());
+        body.put("testPaperId", first.getTestPaperId());
+        body.put("subCount", first.getSubCount());
+        body.put("randomOptions", first.isRandomOptions() ? "true" : "false");
+        body.put("questionId", first.getQuestionId());
+        body.put("questionScore", first.getQuestionScore());
         if (!body.get("questionId").isEmpty()) {
             body.put("type" + body.get("questionId"), body.get("type"));
             body.put("score" + body.get("questionId"), body.get("questionScore"));
-            Arrays.stream(examQuizInfo.getDatas()[examQuizInfo.getDefaults().getStart()].getOptions())
-                    .filter(OptionInfo::isRight)
+            answers.values().stream()
+                    .flatMap(Collection::stream)
                     .map(OptionInfo::getName)
                     .forEach(name -> body.put(new String(("answer" + body.get("questionId")).getBytes()), name));
         }
-        RawResponse response = session.post(examQuizInfo.getDatas()[examQuizInfo.getDefaults().getStart()].getValidationUrl()).params(params).body(body).followRedirect(false).proxy(proxy).send();
+        RawResponse response = session.post(first.getValidationUrl()).params(params).body(body).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(session, response.getHeader("location"));
         String responseStr = response.readToText();
-        if (!examQuizInfo.getDefaults().isTempSave())
+        if (!defaults.isTempSave())
             return responseStr.equals("1");
         String[] results = responseStr.split("\\|");
         if (results.length != 3)
             return false;
-        examQuizInfo.getDefaults().setEncLastUpdateTime(Long.parseLong(results[0]));
-        examQuizInfo.getDefaults().setRemainTime(Integer.parseInt(results[1]));
-        examQuizInfo.getDefaults().setEncRemainTime(examQuizInfo.getDefaults().getRemainTime());
-        examQuizInfo.getDefaults().setEnc(results[2]);
+        defaults.setEncLastUpdateTime(Long.parseLong(results[0]));
+        defaults.setRemainTime(Integer.parseInt(results[1]));
+        defaults.setEncRemainTime(defaults.getRemainTime());
+        defaults.setEnc(results[2]);
         return true;
     }
 
@@ -973,7 +1003,7 @@ public class CXUtil {
         Map<String, String> answers = new HashMap<>();
         p.stream()
                 .flatMap(element -> element.textNodes().stream())
-                .filter(TextNode::isBlank)
+                .filter(textNode -> !textNode.isBlank())
                 .map(TextNode::text)
                 .forEach(text -> {
                     if (!text.trim().contains("答案：")) {
@@ -986,7 +1016,7 @@ public class CXUtil {
         String rightAnswers = p.last().text();
         if (rightAnswers.contains("答案："))
             rightAnswers = rightAnswers.substring(rightAnswers.indexOf("答案：") + "答案：".length()).trim();
-        if (rightAnswers.equalsIgnoreCase("✔") || rightAnswers.equalsIgnoreCase("T") || rightAnswers.equalsIgnoreCase("TRUE") || rightAnswers.equalsIgnoreCase("对"))
+        if (rightAnswers.equalsIgnoreCase("√") || rightAnswers.equalsIgnoreCase("✔") || rightAnswers.equalsIgnoreCase("T") || rightAnswers.equalsIgnoreCase("TRUE") || rightAnswers.equalsIgnoreCase("对"))
             rightAnswers = "true";
         if (rightAnswers.equalsIgnoreCase("X") || rightAnswers.equalsIgnoreCase("F") || rightAnswers.equalsIgnoreCase("FALSE") || rightAnswers.equalsIgnoreCase("错"))
             rightAnswers = "false";
@@ -1001,7 +1031,7 @@ public class CXUtil {
                     rightOptions.forEach(optionInfo -> optionInfo.setRight(true));
                     if (quizData.getQuestionType().equals("1"))
                         options.addAll(rightOptions);
-                    else if (!rightOptions.isEmpty())
+                    else if (!rightOptions.isEmpty() && options.isEmpty())
                         options.add(rightOptions.get(0));
                 });
         return options;

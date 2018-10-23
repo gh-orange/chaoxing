@@ -31,7 +31,7 @@ public class PlayTask extends Task<PlayerTaskData> {
 
     @Override
     public void doTask() throws Exception {
-        checkCodeCallBack.print(this.taskName + "[play start]");
+        checkCodeCallBack.print(this.taskName + "[player start]");
         List<QuizInfo<PlayerQuizData, Void>> playerQuizInfoArray = getQuestions(taskInfo, attachment);
         boolean isPassed = Try.ever(() -> CXUtil.onStart(taskInfo, attachment, videoInfo), checkCodeCallBack);
         if (!isPassed) {
@@ -42,7 +42,7 @@ public class PlayTask extends Task<PlayerTaskData> {
                 if (stop)
                     break;
                 if (!pause) {
-                    checkCodeCallBack.print(this.taskName + "[play " + (int) ((float) this.playSecond / this.videoInfo.getDuration() * 100) + "%]");
+                    checkCodeCallBack.print(this.taskName + "[video play " + (int) ((float) this.playSecond / this.videoInfo.getDuration() * 100) + "%]");
                     playSecond += taskInfo.getDefaults().getReportTimeInterval();
                 }
                 playerQuizInfoArray.forEach(this::doAnswer);
@@ -58,11 +58,12 @@ public class PlayTask extends Task<PlayerTaskData> {
                 else
                     CXUtil.onEnd(taskInfo, attachment, videoInfo);
             }, checkCodeCallBack);
-            checkCodeCallBack.print(this.taskName + "[play finish]");
+            checkCodeCallBack.print(this.taskName + "[video play finish]");
         } else if (!playerQuizInfoArray.isEmpty()) {
             playSecond = videoInfo.getDuration();
             playerQuizInfoArray.forEach(this::doAnswer);
         }
+        checkCodeCallBack.print(this.taskName + "[quiz answer finish]");
     }
 
     public void setPlaySecond(int playSecond) {
@@ -73,10 +74,7 @@ public class PlayTask extends Task<PlayerTaskData> {
         getAnswers(playerQuizInfo).entrySet().stream()
                 .filter(question -> answerQuestion((PlayerQuizData) question.getKey(), question.getValue()))
                 .forEach(question -> {
-                    if (hasFail)
-                        System.out.print("store success:");
-                    else
-                        System.out.print("answer success:");
+                    System.out.print("answer success:");
                     System.out.println(question.getKey().getDescription());
                     question.getValue().forEach(optionInfo -> System.out.println(optionInfo.getName() + "." + optionInfo.getDescription()));
                 });
@@ -117,7 +115,9 @@ public class PlayTask extends Task<PlayerTaskData> {
             Try.ever(() -> {
                 StringBuilder stringBuffer = new StringBuilder();
                 optionInfoList.stream().map(OptionInfo::getName).forEach(stringBuffer::append);
-                playerQuizData.setAnswered(CXUtil.answerPlayerQuiz(baseUri, playerQuizData.getValidationUrl(), playerQuizData.getResourceId(), stringBuffer.toString()));
+                String answerStr = stringBuffer.toString();
+                if (!answerStr.isEmpty())
+                    playerQuizData.setAnswered(CXUtil.answerPlayerQuiz(baseUri, playerQuizData.getValidationUrl(), playerQuizData.getResourceId(), answerStr));
             }, checkCodeCallBack);
             return playerQuizData.isAnswered();
         } catch (Exception ignored) {

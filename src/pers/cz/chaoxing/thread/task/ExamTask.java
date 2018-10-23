@@ -25,26 +25,32 @@ public class ExamTask extends Task<ExamTaskData> {
         checkCodeCallBack.print(this.taskName + "[exam start]");
         QuizInfo<ExamQuizData, ExamQuizConfig> examQuizInfo = loadQuizInfo(attachment);
         Try.ever(() -> CXUtil.getExamQuiz(baseUri, examQuizInfo), checkCodeCallBack);
-        storeQuestion(examQuizInfo);
+        Map<ExamQuizData, List<OptionInfo>> answers = new HashMap<>();
+        ExamQuizData examQuizData = examQuizInfo.getDatas()[examQuizInfo.getDefaults().getStart()];
+        answers.put(examQuizData, Arrays.stream(examQuizData.getOptions()).filter(OptionInfo::isRight).collect(Collectors.toList()));
+        storeQuestion(examQuizInfo.getDefaults(), answers);
         IntStream.range(0, examQuizInfo.getDatas().length).forEach(i -> {
             examQuizInfo.getDefaults().setStart(i);
             Try.ever(() -> CXUtil.getExamQuiz(baseUri, examQuizInfo), checkCodeCallBack);
-            Map<QuizData, List<OptionInfo>> answers = getAnswers(examQuizInfo);
-            if (storeQuestion(examQuizInfo))
-                answers.forEach((key, value) -> {
-                    if (hasFail)
-                        System.out.print("store success:");
-                    else
-                        System.out.print("answer success:");
-                    System.out.println(key.getDescription());
-                    value.forEach(optionInfo -> System.out.println(optionInfo.getName() + "." + optionInfo.getDescription()));
-                });
+            answers.clear();
+            answers.putAll(getAnswers(examQuizInfo));
+            if (storeQuestion(examQuizInfo.getDefaults(), answers))
+                answers.entrySet().stream()
+                        .filter(entry -> !entry.getValue().isEmpty())
+                        .forEach(entry -> {
+                            System.out.print("store success:");
+                            System.out.println(entry.getKey().getDescription());
+                            entry.getValue().forEach(optionInfo -> System.out.println(optionInfo.getName() + "." + optionInfo.getDescription()));
+                        });
         });
         if (!hasFail)
-            answerQuestion(examQuizInfo);
+            examQuizInfo.setPassed(answerQuestion(examQuizInfo.getDefaults(), answers));
         if (hasSleep)
             Thread.sleep(3 * 1000);
-        checkCodeCallBack.print(this.taskName + "[exam finish]");
+        if (examQuizInfo.isPassed())
+            checkCodeCallBack.print(this.taskName + "[exam answer finish]");
+        else
+            checkCodeCallBack.print(this.taskName + "[exam store finish]");
     }
 
     private QuizInfo<ExamQuizData, ExamQuizConfig> loadQuizInfo(ExamTaskData attachment) {
@@ -58,10 +64,10 @@ public class ExamTask extends Task<ExamTaskData> {
         return examQuizInfo;
     }
 
-    protected Map<QuizData, List<OptionInfo>> getAnswers(QuizInfo quizInfo) {
-        Map<QuizData, List<OptionInfo>> questions = new HashMap<>();
-        QuizData quizData = quizInfo.getDatas()[((ExamQuizConfig) quizInfo.getDefaults()).getStart()];
-        CXUtil.getQuizAnswer(quizData).forEach(questions.computeIfAbsent(quizData, key -> new ArrayList<>())::add);
+    protected Map<ExamQuizData, List<OptionInfo>> getAnswers(QuizInfo quizInfo) {
+        Map<ExamQuizData, List<OptionInfo>> questions = new HashMap<>();
+        ExamQuizData quizData = (ExamQuizData) quizInfo.getDatas()[((ExamQuizConfig) quizInfo.getDefaults()).getStart()];
+        CXUtil.getQuizAnswer(quizData).forEach(optionInfo -> questions.computeIfAbsent(quizData, key -> new ArrayList<>()).add(optionInfo));
         if (!questions.containsKey(quizData)) {
             System.out.println(taskName + " exam answer match failure:");
             System.out.println(quizData.getDescription());
@@ -73,18 +79,22 @@ public class ExamTask extends Task<ExamTaskData> {
         }
         if (questions.containsKey(quizData))
             quizData.setAnswered(false);
-        else if (quizData.isAnswered())
+        else
             questions.put(quizData, Arrays.stream(quizData.getOptions()).filter(OptionInfo::isRight).collect(Collectors.toList()));
         return questions;
     }
 
-    private boolean storeQuestion(QuizInfo<ExamQuizData, ExamQuizConfig> examQuizInfo) {
-        examQuizInfo.getDatas()[examQuizInfo.getDefaults().getStart()].setAnswered(Try.ever(() -> CXUtil.storeExamQuiz(examQuizInfo), checkCodeCallBack, examQuizInfo.getDefaults(), taskInfo.getDefaults().getKnowledgeid(), examQuizInfo.getDefaults().getClassId(), examQuizInfo.getDefaults().getCourseId()));
-        return examQuizInfo.getDatas()[examQuizInfo.getDefaults().getStart()].isAnswered();
+    private boolean storeQuestion(ExamQuizConfig defaults, Map<ExamQuizData, List<OptionInfo>> answers) {
+        boolean isPassed = Try.ever(() -> CXUtil.storeExamQuiz(defaults, answers), checkCodeCallBack, defaults, taskInfo.getDefaults().getKnowledgeid(), defaults.getClassId(), defaults.getCourseId());
+        if (isPassed)
+            answers.keySet().forEach(examQuizData -> examQuizData.setAnswered(true));
+        return isPassed;
     }
 
-    private boolean answerQuestion(QuizInfo<ExamQuizData, ExamQuizConfig> examQuizInfo) {
-        examQuizInfo.setPassed(Try.ever(() -> CXUtil.answerExamQuiz(examQuizInfo), checkCodeCallBack, examQuizInfo.getDefaults(), taskInfo.getDefaults().getKnowledgeid(), examQuizInfo.getDefaults().getClassId(), examQuizInfo.getDefaults().getCourseId()));
-        return examQuizInfo.isPassed();
+    private boolean answerQuestion(ExamQuizConfig defaults, Map<ExamQuizData, List<OptionInfo>> answers) {
+        boolean isPassed = Try.ever(() -> CXUtil.answerExamQuiz(defaults, answers), checkCodeCallBack, defaults, taskInfo.getDefaults().getKnowledgeid(), defaults.getClassId(), defaults.getCourseId());
+        if (isPassed)
+            answers.keySet().forEach(examQuizData -> examQuizData.setAnswered(true));
+        return isPassed;
     }
 }

@@ -94,7 +94,7 @@ public abstract class Task<T extends TaskData> implements Runnable, Callable<Boo
         Optional.ofNullable(semaphore).ifPresent(Semaphore::release);
     }
 
-    protected abstract Map<QuizData, List<OptionInfo>> getAnswers(QuizInfo quizInfo);
+    protected abstract Map<? extends QuizData, List<OptionInfo>> getAnswers(QuizInfo quizInfo);
 
     List<OptionInfo> autoCompleteAnswer(QuizData quizData) {
         ArrayList<OptionInfo> options = new ArrayList<>();
