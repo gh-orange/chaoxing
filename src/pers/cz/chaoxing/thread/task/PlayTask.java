@@ -13,7 +13,6 @@ import pers.cz.chaoxing.util.Try;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class PlayTask extends Task<PlayerTaskData> {
     private final VideoInfo videoInfo;
@@ -33,7 +32,7 @@ public class PlayTask extends Task<PlayerTaskData> {
     @Override
     public void doTask() throws Exception {
         checkCodeCallBack.print(this.taskName + "[play start]");
-        QuizInfo<PlayerQuizData, Void>[] playerQuizInfoArray = getQuestions(taskInfo, attachment);
+        List<QuizInfo<PlayerQuizData, Void>> playerQuizInfoArray = getQuestions(taskInfo, attachment);
         boolean isPassed = Try.ever(() -> CXUtil.onStart(taskInfo, attachment, videoInfo), checkCodeCallBack);
         if (!isPassed) {
             do {
@@ -46,7 +45,7 @@ public class PlayTask extends Task<PlayerTaskData> {
                     checkCodeCallBack.print(this.taskName + "[play " + (int) ((float) this.playSecond / this.videoInfo.getDuration() * 100) + "%]");
                     playSecond += taskInfo.getDefaults().getReportTimeInterval();
                 }
-                Arrays.stream(playerQuizInfoArray).forEach(this::doAnswer);
+                playerQuizInfoArray.forEach(this::doAnswer);
                 if (playSecond > videoInfo.getDuration()) {
                     playSecond = videoInfo.getDuration();
                     break;
@@ -60,9 +59,9 @@ public class PlayTask extends Task<PlayerTaskData> {
                     CXUtil.onEnd(taskInfo, attachment, videoInfo);
             }, checkCodeCallBack);
             checkCodeCallBack.print(this.taskName + "[play finish]");
-        } else if (0 != playerQuizInfoArray.length) {
+        } else if (!playerQuizInfoArray.isEmpty()) {
             playSecond = videoInfo.getDuration();
-            Arrays.stream(playerQuizInfoArray).forEach(this::doAnswer);
+            playerQuizInfoArray.forEach(this::doAnswer);
         }
     }
 
@@ -83,7 +82,7 @@ public class PlayTask extends Task<PlayerTaskData> {
                 });
     }
 
-    private QuizInfo<PlayerQuizData, Void>[] getQuestions(TaskInfo taskInfo, PlayerTaskData attachment) throws Exception {
+    private List<QuizInfo<PlayerQuizData, Void>> getQuestions(TaskInfo taskInfo, PlayerTaskData attachment) {
         return Try.ever(() -> CXUtil.getPlayerQuizzes(taskInfo.getDefaults().getInitdataUrl(), attachment.getMid()), checkCodeCallBack);
     }
 

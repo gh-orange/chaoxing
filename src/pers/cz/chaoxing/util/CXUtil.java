@@ -53,6 +53,9 @@ public class CXUtil {
     private static final Type homeworkInfoType = new TypeReference<TaskInfo<HomeworkTaskData>>() {
     }.getType();
 
+    private static final Type playerQuizInfoType = new TypeReference<List<QuizInfo<PlayerQuizData, Void>>>() {
+    }.getType();
+
     private static Session session = Requests.session();
 
     //    public static Proxy proxy = Proxies.httpProxy("10.14.36.103", 8080);
@@ -88,7 +91,9 @@ public class CXUtil {
         RawResponse response = session.get("http://i.mooc.chaoxing.com/space/index.shtml").followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(session, response.getHeader("location"));
-        String src = Jsoup.parse(response.readToText()).select("div.mainright iframe").attr("src");
+        Document document = Jsoup.parse(response.readToText());
+        session.get(document.selectFirst("div.headbanner_new script").attr("src")).proxy(proxy).send();
+        String src = document.select("div.mainright iframe").attr("src");
         for (int i = 0; i < 2; i++) {
             response = session.get(src).followRedirect(false).proxy(proxy).send();
             if (response.getStatusCode() == StatusCodes.FOUND)
@@ -246,7 +251,7 @@ public class CXUtil {
             JSONObject result = JSON.parseObject(session.get(baseUri + "/exam/test/isExpire").params(params).proxy(proxy).send().readToText());
             switch (result.getInteger("status")) {
                 case 0:
-                    System.out.println("Exam need finishStandard:" + params.get("title") + "[" + result.getInteger("finishStandard") + "%]");
+                    System.out.println("Exam need finishStandard: " + attachment.getProperty().getTitle() + "[" + result.getInteger("finishStandard") + "%]");
                     break;
                 case 1:
                     return true;
@@ -345,14 +350,14 @@ public class CXUtil {
      * @return
      * @throws CheckCodeException
      */
-    public static QuizInfo<PlayerQuizData, Void>[] getPlayerQuizzes(String initDataUrl, String mid) throws CheckCodeException {
+    public static List<QuizInfo<PlayerQuizData, Void>> getPlayerQuizzes(String initDataUrl, String mid) throws CheckCodeException {
         HashMap<String, String> params = new HashMap<>();
         params.put("mid", mid);
         params.put("start", "undefined");
         RawResponse response = session.get(initDataUrl).params(params).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(session, response.getHeader("location"));
-        return JSON.parseArray(response.readToText()).toArray(new QuizInfo[0]);
+        return JSON.parseArray(response.readToText()).toJavaObject(playerQuizInfoType);
     }
 
     public static QuizInfo<HomeworkQuizData, HomeworkQuizConfig> getHomeworkQuiz(String baseUri, TaskInfo<HomeworkTaskData> taskInfo, HomeworkTaskData attachment) throws CheckCodeException {
@@ -392,6 +397,7 @@ public class CXUtil {
         String endStr = "\"";
         int beginIndex = responseStr.lastIndexOf(beginStr, responseStr.indexOf("$(\"#answerwqbid\")")) + beginStr.length();
         QuizInfo<HomeworkQuizData, HomeworkQuizConfig> homeworkQuizInfo = new QuizInfo<>();
+        homeworkQuizInfo.setDefaults(new HomeworkQuizConfig());
         homeworkQuizInfo.setDatas(new HomeworkQuizData[questions.size()]);
         homeworkQuizInfo.setPassed(!elements.select("div.ZyTop h3 span").text().contains("待做"));
         homeworkQuizInfo.getDefaults().setUserId(form.getElementById("userId").val());
@@ -1013,6 +1019,8 @@ public class CXUtil {
         String examEnc = document.getElementById("examEnc").val();
         String begin = "(";
         String end = ")";
+        String beginEndTime = "至";
+        String endEndTime = "考试";
         TaskInfo<ExamTaskData> examInfo = new TaskInfo<>();
         examInfo.setDefaults(new TaskConfig());
         examInfo.setAttachments(new ExamTaskData[lis.size()]);
@@ -1020,21 +1028,27 @@ public class CXUtil {
             Element examElement = lis.get(i).selectFirst("div.titTxt");
             Element dataElement = examElement.selectFirst("p a");
             String statusStr = examElement.wholeText();
-            statusStr = statusStr.substring(statusStr.indexOf("状态："));
-            boolean isPassed = !statusStr.contains("待做");
+            boolean isPassed = !statusStr.substring(statusStr.indexOf("状态：")).contains("待做");
             String paramStr = dataElement.attr("onclick");
             int beginIndex = paramStr.indexOf(begin) + begin.length();
             paramStr = paramStr.substring(beginIndex, paramStr.indexOf(end, beginIndex));
             String[] funcParams = paramStr.split(",");
-            examInfo.getDefaults().setCourseid(funcParams[0].replaceAll("'", ""));
             examInfo.getDefaults().setClazzId(!classId.isEmpty() ? classId : params.get("classId"));
             examInfo.getAttachments()[i] = new ExamTaskData();
             examInfo.getAttachments()[i].setPassed(isPassed);
             examInfo.getAttachments()[i].setEnc(params.get("enc"));
             examInfo.getAttachments()[i].setProperty(new ExamDataProperty());
-            examInfo.getAttachments()[i].getProperty().settId(funcParams[1].isEmpty() ? "0" : funcParams[1]);
-            examInfo.getAttachments()[i].getProperty().setId(funcParams[2]);
-            examInfo.getAttachments()[i].getProperty().setEndTime(funcParams[3]);
+            if (funcParams.length >= 4) {
+                examInfo.getDefaults().setCourseid(funcParams[0].replaceAll("'", ""));
+                examInfo.getAttachments()[i].getProperty().settId(funcParams[1].isEmpty() ? "0" : funcParams[1]);
+                examInfo.getAttachments()[i].getProperty().setId(funcParams[2]);
+                examInfo.getAttachments()[i].getProperty().setEndTime(funcParams[3]);
+            } else {
+                examInfo.getDefaults().setCourseid(params.get("courseId"));
+                statusStr = statusStr.substring(statusStr.indexOf("时间："));
+                beginIndex = statusStr.indexOf(beginEndTime) + beginEndTime.length();
+                examInfo.getAttachments()[i].getProperty().setEndTime(statusStr.substring(beginIndex, statusStr.indexOf(endEndTime, beginIndex)).trim());
+            }
             examInfo.getAttachments()[i].getProperty().setMoocTeacherId(moocTeacherId);
             examInfo.getAttachments()[i].getProperty().setExamsystem(examsystem);
             examInfo.getAttachments()[i].getProperty().setExamEnc(examEnc);
