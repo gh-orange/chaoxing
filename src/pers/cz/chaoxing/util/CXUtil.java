@@ -165,8 +165,8 @@ public class CXUtil {
         for (int i = 0; i < 2; i++) {
             response = session.get(src).params(params).followRedirect(false).proxy(proxy).send();
             if (response.getStatusCode() == StatusCodes.FOUND) {
-                src = response.getHeader("location");
-                if (src != null && !src.contains("study"))
+                src = Optional.ofNullable(response.getHeader("location")).orElse("");
+                if (!src.contains("study"))
                     throw new CheckCodeException(session, src);
             } else
                 break;
@@ -174,7 +174,7 @@ public class CXUtil {
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(session, src);
         Element script = Jsoup.parse(response.readToText()).select("script[src~=https?://]").first();
-        if (null == script)
+        if (!Optional.ofNullable(script).isPresent())
             return false;
         response = session.get(script.attr("src")).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
@@ -327,7 +327,7 @@ public class CXUtil {
      * @throws CheckCodeException
      */
     public static boolean onPause(TaskInfo taskInfo, PlayerTaskData attachment, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
-        if (taskInfo.getDefaults().getChapterId() != null && !taskInfo.getDefaults().getChapterId().isEmpty())
+        if (!Optional.ofNullable(taskInfo.getDefaults().getChapterId()).orElse("").isEmpty())
             return sendLog(taskInfo, attachment, videoInfo, playSecond, 2);
         return false;
     }
@@ -384,8 +384,8 @@ public class CXUtil {
         for (int i = 0; i < 3; i++) {
             response = session.get(src).params(params).followRedirect(false).proxy(proxy).send();
             if (response.getStatusCode() == StatusCodes.FOUND) {
-                src = response.getHeader("location");
-                if (src != null && !src.contains("work"))
+                src = Optional.ofNullable(response.getHeader("location")).orElse("");
+                if (!src.contains("work"))
                     throw new CheckCodeException(session, src);
             } else
                 break;
@@ -434,12 +434,12 @@ public class CXUtil {
         IntStream.range(0, questions.size()).forEach(i -> {
             homeworkQuizInfo.getDatas()[i] = new HomeworkQuizData();
             homeworkQuizInfo.getDatas()[i].setAnswered(homeworkQuizInfo.isPassed());
-            if (null != form)
+            if (Optional.ofNullable(form).isPresent())
                 homeworkQuizInfo.getDatas()[i].setValidationUrl(baseUri + "/work/" + form.attr("action"));
             else
                 homeworkQuizInfo.getDatas()[i].setValidationUrl(baseUri + "/work/" + questions.get(i).selectFirst("form[id~=questionErrorForm]").attr("action"));
             Element inputAnswerType = questions.get(i).select("input[id~=answertype]").first();
-            if (null != inputAnswerType) {
+            if (Optional.ofNullable(inputAnswerType).isPresent()) {
                 Element inputAnswerCheck = inputAnswerType.previousElementSibling();
                 homeworkQuizInfo.getDatas()[i].setAnswerTypeId(inputAnswerType.id());
                 if (inputAnswerCheck.tagName().equals("input"))
@@ -452,8 +452,8 @@ public class CXUtil {
             IntStream.range(0, lis.size()).forEach(j -> {
                 Element inputAnswer = lis.get(j).selectFirst("label input");
                 homeworkQuizInfo.getDatas()[i].getOptions()[j] = new OptionInfo();
-                if (null != inputAnswer) {
-                    if (homeworkQuizInfo.getDatas()[i].getAnswerId() == null || homeworkQuizInfo.getDatas()[i].getAnswerId().isEmpty())
+                if (Optional.ofNullable(inputAnswer).isPresent()) {
+                    if (Optional.ofNullable(homeworkQuizInfo.getDatas()[i].getAnswerId()).orElse("").isEmpty())
                         homeworkQuizInfo.getDatas()[i].setAnswerId(inputAnswer.attr("name"));
                     homeworkQuizInfo.getDatas()[i].getOptions()[j].setRight(inputAnswer.hasAttr("checked"));
                     if (homeworkQuizInfo.getDatas()[i].getOptions()[j].isRight())
@@ -463,7 +463,7 @@ public class CXUtil {
                     homeworkQuizInfo.getDatas()[i].getOptions()[j].setName(lis.get(j).selectFirst("i").text().replaceAll("、", ""));
                 if (!lis.isEmpty())
                     homeworkQuizInfo.getDatas()[i].getOptions()[j].setDescription(lis.get(j).select("a").text());
-                if (homeworkQuizInfo.getDatas()[i].getOptions()[j].getDescription() == null || homeworkQuizInfo.getDatas()[i].getOptions()[j].getDescription().isEmpty())
+                if (Optional.ofNullable(homeworkQuizInfo.getDatas()[i].getOptions()[j].getDescription()).orElse("").isEmpty())
                     homeworkQuizInfo.getDatas()[i].getOptions()[j].setDescription(homeworkQuizInfo.getDatas()[i].getOptions()[j].getName());
             });
         });
@@ -490,7 +490,7 @@ public class CXUtil {
             throw new CheckCodeException(session, response.getHeader("location"));
         Document document = Jsoup.parse(response.readToText());
         FormElement form = document.select("form#submitTest").forms().get(0);
-        if (null == examQuizInfo.getDatas())
+        if (!Optional.ofNullable(examQuizInfo.getDatas()).isPresent())
             examQuizInfo.setDatas(new ExamQuizData[document.select("a[id~=span]").size()]);
         examQuizInfo.getDefaults().setUserId(document.getElementById("userId").val());
         examQuizInfo.getDefaults().setClassId(document.getElementById("classId").val());
@@ -531,10 +531,10 @@ public class CXUtil {
             examQuizConfig.getOptions()[j].setName(input.val());
             if (!lisDescription.isEmpty())
                 examQuizConfig.getOptions()[j].setDescription(lisDescription.get(j).selectFirst("a").text());
-            if (examQuizConfig.getOptions()[j].getDescription() == null || examQuizConfig.getOptions()[j].getDescription().isEmpty())
+            if (Optional.ofNullable(examQuizConfig.getOptions()[j].getDescription()).orElse("").isEmpty())
                 examQuizConfig.getOptions()[j].setDescription(examQuizConfig.getOptions()[j].getName());
         });
-        if (null == examQuizInfo.getDatas()[examQuizInfo.getDefaults().getStart()])
+        if (!Optional.ofNullable(examQuizInfo.getDatas()[examQuizInfo.getDefaults().getStart()]).isPresent())
             examQuizInfo.getDatas()[examQuizInfo.getDefaults().getStart()] = examQuizConfig;
         return examQuizInfo;
     }
@@ -659,7 +659,7 @@ public class CXUtil {
         Iterator<HomeworkQuizData> iterator = answers.keySet().iterator();
         if (iterator.hasNext())
             first = iterator.next();
-        if (null == first)
+        if (!Optional.ofNullable(first).isPresent())
             return false;
         Map<String, String> params = new HashMap<>();
         params.put("courseId", defaults.getCourseId());
@@ -668,7 +668,7 @@ public class CXUtil {
         cache false
          */
 //        params.put("_", String.valueOf(System.currentTimeMillis()));
-        if (defaults.getEnc() == null || defaults.getEnc().isEmpty()) {
+        if (Optional.ofNullable(defaults.getEnc()).orElse("").isEmpty()) {
             String responseStr = session.get(baseUri + "/work/validate").params(params).followRedirect(false).proxy(proxy).send().readToText();
             if (responseStr.isEmpty())
                 return false;
@@ -750,12 +750,12 @@ public class CXUtil {
             StringBuilder answerStr = new StringBuilder();
             options.forEach(optionInfo -> {
                 body.put(new String(homeworkQuizData.getAnswerId().getBytes()), optionInfo.getName());
-                if (null != homeworkQuizData.getAnswerCheckName() && !homeworkQuizData.getAnswerCheckName().isEmpty())
+                if (!Optional.ofNullable(homeworkQuizData.getAnswerCheckName()).orElse("").isEmpty())
                     answerStr.append(optionInfo.getName());
             });
-            if (null != homeworkQuizData.getAnswerCheckName() && !homeworkQuizData.getAnswerCheckName().isEmpty())
+            if (!Optional.ofNullable(homeworkQuizData.getAnswerCheckName()).orElse("").isEmpty())
                 body.put(homeworkQuizData.getAnswerCheckName(), answerStr.toString());
-            if (homeworkQuizData.getAnswerTypeId() != null && !homeworkQuizData.getAnswerTypeId().isEmpty())
+            if (!Optional.ofNullable(homeworkQuizData.getAnswerTypeId()).orElse("").isEmpty())
                 body.put(homeworkQuizData.getAnswerTypeId(), homeworkQuizData.getQuestionType());
         });
         RawResponse response = session.post(first.getValidationUrl()).params(params).body(body).followRedirect(false).proxy(proxy).send();
@@ -859,7 +859,7 @@ public class CXUtil {
         Iterator<ExamQuizData> iterator = answers.keySet().iterator();
         if (iterator.hasNext())
             first = iterator.next();
-        if (null == first)
+        if (!Optional.ofNullable(first).isPresent())
             return false;
         HashMap<String, String> params = new HashMap<>();
         params.put("tempSave", defaults.isTempSave() ? "true" : "false");
@@ -1013,7 +1013,7 @@ public class CXUtil {
             }
         } while (!forms.isEmpty());
         Element div = document.selectFirst("div.searchTopic");
-        if (null == div)
+        if (!Optional.ofNullable(div).isPresent())
             return options;
         document = Jsoup.parse(Requests.get("https://m.3gmfw.cn/" + div.selectFirst("a").attr("href")).proxy(proxy).send().charset("GBK").readToText());
         Elements p = document.select("div.content p");
@@ -1157,7 +1157,7 @@ public class CXUtil {
             return false;
         }
         String chapterId = taskInfo.getDefaults().getChapterId();
-        if (chapterId != null && !chapterId.isEmpty()) {
+        if (!Optional.ofNullable(chapterId).orElse("").isEmpty()) {
             int state;
             switch (dragStatus) {
                 case 3:
@@ -1207,7 +1207,7 @@ public class CXUtil {
             md5Str.insert(0, "0");
         params.put("enc", md5Str.toString());
         RawResponse response;
-        if (videoInfo.getDtoken() != null && !videoInfo.getDtoken().isEmpty())
+        if (!Optional.ofNullable(videoInfo.getDtoken()).orElse("").isEmpty())
             response = session.get(taskInfo.getDefaults().getReportUrl() + "/" + videoInfo.getDtoken()).params(params).followRedirect(false).proxy(proxy).send();
         else
             response = session.get(taskInfo.getDefaults().getReportUrl()).params(params).followRedirect(false).proxy(proxy).send();

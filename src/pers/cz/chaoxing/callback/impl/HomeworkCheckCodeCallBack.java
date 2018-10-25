@@ -17,6 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Scanner;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -106,7 +107,7 @@ public class HomeworkCheckCodeCallBack implements CallBack<CallBackData> {
         params.put("code", checkCode);
         RawResponse response = session.post(this.baseUri + this.actionUri).params(params).followRedirect(false).proxy(proxy).send();
         CallBackData callBackData = response.readToJson(CallBackData.class);
-        if (null == callBackData)
+        if (!Optional.ofNullable(callBackData).isPresent())
             return new CallBackData(false);
         callBackData.setCode(checkCode);
         callBackData.setStatus(session.post(this.baseUri + "/img/ajaxValidate").params(params).followRedirect(false).proxy(proxy).send().readToText().equals("true"));
