@@ -165,7 +165,7 @@ public class CXUtil {
         for (int i = 0; i < 2; i++) {
             response = session.get(src).params(params).followRedirect(false).proxy(proxy).send();
             if (response.getStatusCode() == StatusCodes.FOUND) {
-                src = Optional.ofNullable(response.getHeader("location")).orElse("");
+                src = Optional.ofNullable(response.getHeader("location")).orElse("study");
                 if (!src.contains("study"))
                     throw new CheckCodeException(session, src);
             } else
@@ -384,7 +384,7 @@ public class CXUtil {
         for (int i = 0; i < 3; i++) {
             response = session.get(src).params(params).followRedirect(false).proxy(proxy).send();
             if (response.getStatusCode() == StatusCodes.FOUND) {
-                src = Optional.ofNullable(response.getHeader("location")).orElse("");
+                src = Optional.ofNullable(response.getHeader("location")).orElse("work");
                 if (!src.contains("work"))
                     throw new CheckCodeException(session, src);
             } else
