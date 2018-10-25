@@ -51,7 +51,7 @@ public abstract class Task<T extends TaskData, V extends QuizData> implements Ru
                 String begin = ":";
                 int beginIndex = message.indexOf(begin);
                 if (-1 != beginIndex)
-                    message = message.substring(beginIndex + begin.length());
+                    message = message.substring(beginIndex + begin.length()).trim();
                 checkCodeCallBack.print("Net connection error: " + message);
             } catch (InterruptedException | WrongAccountException e) {
                 checkCodeCallBack.print(e.getLocalizedMessage());

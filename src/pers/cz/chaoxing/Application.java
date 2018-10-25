@@ -158,7 +158,7 @@ public class Application {
             String begin = ":";
             int beginIndex = message.indexOf(begin);
             if (-1 != beginIndex)
-                message = message.substring(beginIndex + begin.length());
+                message = message.substring(beginIndex + begin.length()).trim();
             String finalMessage = message;
             IOLock.output(() -> System.out.println("Net connection error: " + finalMessage));
         } catch (Exception ignored) {

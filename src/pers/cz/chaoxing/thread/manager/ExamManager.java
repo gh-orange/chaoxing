@@ -25,7 +25,6 @@ public class ExamManager extends Manager {
     public ExamManager(int threadPoolSize) {
         super(threadPoolSize);
         this.examCallBack = new ExamCheckCodeCallBack("./checkCode-exam.jpeg");
-        ((ExamCheckCodeCallBack) this.examCallBack).setScanner(((CustomCheckCodeCallBack) this.customCallBack).getScanner());
     }
 
     @Override
@@ -57,6 +56,12 @@ public class ExamManager extends Manager {
                     }, customCallBack));
         }));
         IOLock.output(() -> System.out.println("All exam task has been called"));
+    }
+
+    @Override
+    public void setCustomCallBack(CallBack<?> customCallBack) {
+        super.setCustomCallBack(customCallBack);
+        ((ExamCheckCodeCallBack) this.examCallBack).setScanner(((CustomCheckCodeCallBack) this.customCallBack).getScanner());
     }
 
     public void close() {

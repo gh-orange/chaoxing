@@ -541,21 +541,11 @@ public class CXUtil {
 
     public static boolean storeHomeworkQuiz(String baseUri, HomeworkQuizConfig defaults, Map<HomeworkQuizData, List<OptionInfo>> answers) throws CheckCodeException, WrongAccountException {
         defaults.setPyFlag("1");
-        answers.forEach((homeworkQuizData, options) -> {
-                    if (options.isEmpty())
-                        options.addAll(Arrays.stream(homeworkQuizData.getOptions()).filter(OptionInfo::isRight).collect(Collectors.toList()));
-                }
-        );
         return answerHomeworkQuiz(baseUri, defaults, answers);
     }
 
     public static boolean storeExamQuiz(ExamQuizConfig defaults, Map<ExamQuizData, List<OptionInfo>> answers) throws CheckCodeException {
         defaults.setTempSave(true);
-        answers.forEach((examQuizData, options) -> {
-                    if (options.isEmpty())
-                        options.addAll(Arrays.stream(examQuizData.getOptions()).filter(OptionInfo::isRight).collect(Collectors.toList()));
-                }
-        );
         return answerExamQuiz(defaults, answers);
     }
 
@@ -748,6 +738,8 @@ public class CXUtil {
         body.put("answerwqbid", defaults.getAnswerwqbid());
         answers.forEach((homeworkQuizData, options) -> {
             StringBuilder answerStr = new StringBuilder();
+            if (options.isEmpty())
+                options = Arrays.stream(homeworkQuizData.getOptions()).filter(OptionInfo::isRight).collect(Collectors.toList());
             options.forEach(optionInfo -> {
                 body.put(new String(homeworkQuizData.getAnswerId().getBytes()), optionInfo.getName());
                 if (!Optional.ofNullable(homeworkQuizData.getAnswerCheckName()).orElse("").isEmpty())
@@ -925,8 +917,11 @@ public class CXUtil {
         if (!body.get("questionId").isEmpty()) {
             body.put("type" + body.get("questionId"), body.get("type"));
             body.put("score" + body.get("questionId"), body.get("questionScore"));
-            answers.values().stream()
-                    .flatMap(Collection::stream)
+            List<OptionInfo> options = answers.values().stream()
+                    .flatMap(Collection::stream).collect(Collectors.toList());
+            if (options.isEmpty())
+                options = answers.keySet().stream().flatMap(examQuizData -> Arrays.stream(examQuizData.getOptions())).filter(OptionInfo::isRight).collect(Collectors.toList());
+            options.stream()
                     .map(OptionInfo::getName)
                     .forEach(name -> body.put(new String(("answer" + body.get("questionId")).getBytes()), name));
         }

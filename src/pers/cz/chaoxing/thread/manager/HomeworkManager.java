@@ -28,7 +28,6 @@ public class HomeworkManager extends Manager {
     public HomeworkManager(int threadPoolSize) {
         super(threadPoolSize);
         this.homeworkCallBack = new HomeworkCheckCodeCallBack("./checkCode-homework.jpeg");
-        ((HomeworkCheckCodeCallBack) this.homeworkCallBack).setScanner(((CustomCheckCodeCallBack) this.customCallBack).getScanner());
     }
 
     @Override
@@ -56,6 +55,12 @@ public class HomeworkManager extends Manager {
                 }, customCallBack));
         }));
         IOLock.output(() -> System.out.println("All homework task has been called"));
+    }
+
+    @Override
+    public void setCustomCallBack(CallBack<?> customCallBack) {
+        super.setCustomCallBack(customCallBack);
+        ((HomeworkCheckCodeCallBack) this.homeworkCallBack).setScanner(((CustomCheckCodeCallBack) this.customCallBack).getScanner());
     }
 
     public void close() {
