@@ -9,6 +9,7 @@ import org.jsoup.nodes.Element;
 import pers.cz.chaoxing.callback.CallBack;
 import pers.cz.chaoxing.util.IOLock;
 import pers.cz.chaoxing.util.CXUtil;
+import pers.cz.chaoxing.util.StringUtil;
 
 import java.awt.*;
 import java.io.File;
@@ -96,13 +97,8 @@ public class CustomCheckCodeCallBack implements CallBack<Boolean> {
         this.actionUri = document.select("form").attr("action");
         Element img = document.selectFirst("img");
         String imgUri = img.attr("src");
-        if (imgUri.isEmpty()) {
-            imgUri = img.attr("onclick");
-            String begin = "this.src='";
-            String end = "?";
-            int beginIndex = imgUri.indexOf(begin) + begin.length();
-            imgUri = imgUri.substring(beginIndex, imgUri.indexOf(end, beginIndex));
-        }
+        if (imgUri.isEmpty())
+            imgUri = StringUtil.subStringBetweenFirst(img.attr("onclick"), "this.src='", "?");
         session.get(this.baseUri + imgUri).proxy(CXUtil.proxy).send().writeToFile(path);
         return true;
     }

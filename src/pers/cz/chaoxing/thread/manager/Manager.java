@@ -4,6 +4,7 @@ import net.dongliu.requests.exception.RequestsException;
 import pers.cz.chaoxing.callback.CallBack;
 import pers.cz.chaoxing.thread.LimitedBlockingQueue;
 import pers.cz.chaoxing.util.IOLock;
+import pers.cz.chaoxing.util.StringUtil;
 import pers.cz.chaoxing.util.Try;
 
 import java.io.Closeable;
@@ -45,13 +46,8 @@ public abstract class Manager implements Runnable, Closeable {
             try {
                 doJob();
             } catch (RequestsException e) {
-                String message = e.getLocalizedMessage();
-                String begin = ":";
-                int beginIndex = message.indexOf(begin);
-                if (-1 != beginIndex)
-                    message = message.substring(beginIndex + begin.length()).trim();
-                String finalMessage = message;
-                IOLock.output(() -> System.out.println("Net connection error: " + finalMessage));
+                String message = StringUtil.subStringAfterFirst(e.getLocalizedMessage(), ":").trim();
+                IOLock.output(() -> System.out.println("Net connection error: " + message));
                 release();
             } catch (Exception ignored) {
                 release();

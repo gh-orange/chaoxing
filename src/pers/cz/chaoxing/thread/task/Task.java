@@ -8,6 +8,8 @@ import pers.cz.chaoxing.common.quiz.data.QuizData;
 import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.common.task.data.TaskData;
 import pers.cz.chaoxing.exception.WrongAccountException;
+import pers.cz.chaoxing.util.IOLock;
+import pers.cz.chaoxing.util.StringUtil;
 import pers.cz.chaoxing.util.TaskState;
 import pers.cz.chaoxing.util.Try;
 
@@ -47,12 +49,8 @@ public abstract class Task<T extends TaskData, V extends QuizData> implements Ru
             try {
                 doTask();
             } catch (RequestsException e) {
-                String message = e.getLocalizedMessage();
-                String begin = ":";
-                int beginIndex = message.indexOf(begin);
-                if (-1 != beginIndex)
-                    message = message.substring(beginIndex + begin.length()).trim();
-                checkCodeCallBack.print("Net connection error: " + message);
+                String message = StringUtil.subStringAfterFirst(e.getLocalizedMessage(), ":").trim();
+                IOLock.output(() -> System.out.println("Net connection error: " + message));
             } catch (InterruptedException | WrongAccountException e) {
                 checkCodeCallBack.print(e.getLocalizedMessage());
             } catch (Exception ignored) {

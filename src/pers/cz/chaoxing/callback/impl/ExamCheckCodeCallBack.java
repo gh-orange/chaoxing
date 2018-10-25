@@ -8,6 +8,7 @@ import pers.cz.chaoxing.callback.CallBack;
 import pers.cz.chaoxing.callback.CallBackData;
 import pers.cz.chaoxing.util.IOLock;
 import pers.cz.chaoxing.util.CXUtil;
+import pers.cz.chaoxing.util.StringUtil;
 
 import java.awt.*;
 import java.io.File;
@@ -112,12 +113,7 @@ public class ExamCheckCodeCallBack implements CallBack<CallBackData> {
         params.put("callback", callback);
         params.put("inpCode", checkCode);
         RawResponse response = session.get(this.baseUri + this.actionUri).params(params).followRedirect(false).proxy(proxy).send();
-        String responseStr = response.readToText();
-        String begin = params.get("callback") + "(";
-        String end = ")";
-        int beginIndex = responseStr.indexOf(begin) + begin.length();
-        if (-1 != beginIndex)
-            responseStr = responseStr.substring(beginIndex, responseStr.indexOf(end, beginIndex));
+        String responseStr = StringUtil.subStringBetweenFirst(response.readToText(), params.get("callback") + "(", ")");
         CallBackData callBackData = JSON.parseObject(responseStr, CallBackData.class);
         callBackData.setCode(checkCode);
         return callBackData;

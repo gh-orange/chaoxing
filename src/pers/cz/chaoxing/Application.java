@@ -9,6 +9,7 @@ import pers.cz.chaoxing.thread.manager.HomeworkManager;
 import pers.cz.chaoxing.thread.manager.PlayerManager;
 import pers.cz.chaoxing.util.CXUtil;
 import pers.cz.chaoxing.util.IOLock;
+import pers.cz.chaoxing.util.StringUtil;
 import pers.cz.chaoxing.util.Try;
 
 import java.util.*;
@@ -156,13 +157,8 @@ public class Application {
                 examThread.join();
             }
         } catch (RequestsException e) {
-            String message = e.getLocalizedMessage();
-            String begin = ":";
-            int beginIndex = message.indexOf(begin);
-            if (-1 != beginIndex)
-                message = message.substring(beginIndex + begin.length()).trim();
-            String finalMessage = message;
-            IOLock.output(() -> System.out.println("Net connection error: " + finalMessage));
+            String message = StringUtil.subStringAfterFirst(e.getLocalizedMessage(), ":").trim();
+            IOLock.output(() -> System.out.println("Net connection error: " + message));
         } catch (Exception ignored) {
         }
     }
