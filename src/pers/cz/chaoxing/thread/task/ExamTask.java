@@ -57,6 +57,7 @@ public class ExamTask extends Task<ExamTaskData, ExamQuizData> {
 
     private QuizInfo<ExamQuizData, ExamQuizConfig> loadQuizInfo(ExamTaskData attachment) {
         QuizInfo<ExamQuizData, ExamQuizConfig> examQuizInfo = new QuizInfo<>();
+        examQuizInfo.setDefaults(new ExamQuizConfig());
         examQuizInfo.getDefaults().setClassId(taskInfo.getDefaults().getClazzId());
         examQuizInfo.getDefaults().setCourseId(taskInfo.getDefaults().getCourseid());
         examQuizInfo.getDefaults().settId(attachment.getProperty().gettId());
