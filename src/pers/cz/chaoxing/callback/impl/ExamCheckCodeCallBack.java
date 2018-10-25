@@ -116,7 +116,8 @@ public class ExamCheckCodeCallBack implements CallBack<CallBackData> {
         String begin = params.get("callback") + "(";
         String end = ")";
         int beginIndex = responseStr.indexOf(begin) + begin.length();
-        responseStr = responseStr.substring(beginIndex, responseStr.indexOf(end, beginIndex));
+        if (-1 != beginIndex)
+            responseStr = responseStr.substring(beginIndex, responseStr.indexOf(end, beginIndex));
         CallBackData callBackData = JSON.parseObject(responseStr, CallBackData.class);
         callBackData.setCode(checkCode);
         return callBackData;

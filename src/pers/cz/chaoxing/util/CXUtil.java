@@ -63,10 +63,15 @@ public class CXUtil {
 
     public static boolean login(String username, String password, String checkCode) throws WrongAccountException {
         String indexUri = session.get("http://dlnu.fy.chaoxing.com/topjs?index=1").proxy(proxy).send().readToText();
+        if (indexUri.isEmpty())
+            return false;
         String beginStr = "location.href = \\\"";
         String endStr = "\\\"";
         int beginIndex = indexUri.indexOf(beginStr) + beginStr.length();
-        Document document = Jsoup.parse(session.get(indexUri.substring(beginIndex, indexUri.indexOf(endStr, beginIndex))).proxy(proxy).send().readToText());
+        String responseStr = session.get(indexUri.substring(beginIndex, indexUri.indexOf(endStr, beginIndex))).proxy(proxy).send().readToText();
+        if (responseStr.isEmpty())
+            return false;
+        Document document = Jsoup.parse(responseStr);
         Map<String, String> postBody = new HashMap<>();
         postBody.put("refer_0x001", document.getElementById("refer_0x001").val());
         postBody.put("pid", document.getElementById("pid").val());
@@ -81,7 +86,7 @@ public class CXUtil {
         postBody.put("uname", username);
         postBody.put("password", password);
         postBody.put("numcode", checkCode);
-        String responseStr = session.post("http://passport2.chaoxing.com/login?refer=http://i.mooc.chaoxing.com/space/index.shtml").body(postBody).proxy(proxy).send().readToText();
+        responseStr = session.post("http://passport2.chaoxing.com/login?refer=http://i.mooc.chaoxing.com/space/index.shtml").body(postBody).proxy(proxy).send().readToText();
         if (responseStr.contains("密码错误"))
             throw new WrongAccountException();
         return !responseStr.contains("用户登录");
@@ -232,11 +237,15 @@ public class CXUtil {
         }
     }
 
-    public static VideoInfo getVideoInfo(String baseUri, String uri, String objectId, String fid) {
+    public static VideoInfo getVideoInfo(String baseUri, String uri, String objectId, String fid) throws CheckCodeException {
         Map<String, String> params = new HashMap<>();
         params.put("k", fid);
         params.put("_dc", String.valueOf(System.currentTimeMillis()));
-        return session.get(baseUri + uri + "/" + objectId).params(params).proxy(proxy).send().readToJson(VideoInfo.class);
+        RawResponse response = session.get(baseUri + uri + "/" + objectId).params(params).followRedirect(false).proxy(proxy).send();
+        if (response.getStatusCode() == StatusCodes.FOUND)
+            throw new CheckCodeException(session, response.getHeader("location"));
+//        return response.readToJson(VideoInfo.class);
+        return response.readToJson(VideoInfo.class);
     }
 
     public static boolean startExam(String baseUri, TaskInfo<ExamTaskData> taskInfo, ExamTaskData attachment) throws CheckCodeException {
@@ -489,6 +498,7 @@ public class CXUtil {
             throw new CheckCodeException(session, response.getHeader("location"));
         Document document = Jsoup.parse(response.readToText());
         FormElement form = document.select("form#submitTest").forms().get(0);
+        form.setBaseUri(baseUri);
         if (!Optional.ofNullable(examQuizInfo.getDatas()).isPresent())
             examQuizInfo.setDatas(new ExamQuizData[document.select("a[id~=span]").size()]);
         examQuizInfo.getDefaults().setUserId(document.getElementById("userId").val());
@@ -513,7 +523,7 @@ public class CXUtil {
         examQuizConfig.setPaperId(document.getElementById("paperId").val());
         examQuizConfig.setSubCount(document.getElementById("subCount").val());
         examQuizConfig.setRandomOptions(document.getElementById("randomOptions").val().equals("true"));
-        examQuizConfig.setValidationUrl(baseUri + form.attr("action"));
+        examQuizConfig.setValidationUrl(form.absUrl("action"));
         examQuizConfig.setQuestionId(form.getElementById("questionId").val());
         examQuizConfig.setDescription(document.selectFirst("div.Cy_Title div").text().replaceFirst("（[\\d.]+分）", ""));
         examQuizConfig.setQuestionType(document.getElementById("type").val());
@@ -555,7 +565,7 @@ public class CXUtil {
         RawResponse response = session.get(baseUri + validationUrl).params(params).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(session, response.getHeader("location"));
-        JSONObject jsonObject = JSONObject.parseObject(response.readToText());
+        JSONObject jsonObject = JSON.parseObject(response.readToText());
         return jsonObject.getString("answer").equals(answer) && jsonObject.getBoolean("isRight");
     }
 
@@ -661,7 +671,7 @@ public class CXUtil {
             String responseStr = session.get(baseUri + "/work/validate").params(params).followRedirect(false).proxy(proxy).send().readToText();
             if (responseStr.isEmpty())
                 return false;
-            switch (JSONObject.parseObject(responseStr).getIntValue("status")) {
+            switch (JSON.parseObject(responseStr).getIntValue("status")) {
                 case 1:
                     throw new WrongAccountException();
                 case 2:
@@ -1207,6 +1217,6 @@ public class CXUtil {
             response = session.get(taskInfo.getDefaults().getReportUrl()).params(params).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(session, response.getHeader("location"));
-        return JSONObject.parseObject(response.readToText()).getBoolean("isPassed");
+        return JSON.parseObject(response.readToText()).getBoolean("isPassed");
     }
 }
