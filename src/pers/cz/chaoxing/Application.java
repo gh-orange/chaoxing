@@ -9,6 +9,7 @@ import pers.cz.chaoxing.thread.manager.HomeworkManager;
 import pers.cz.chaoxing.thread.manager.PlayerManager;
 import pers.cz.chaoxing.util.CXUtil;
 import pers.cz.chaoxing.util.IOLock;
+import pers.cz.chaoxing.util.Try;
 
 import java.util.*;
 import java.util.concurrent.Semaphore;
@@ -106,7 +107,8 @@ public class Application {
                 String examUriModel = "";
                 List<Map<String, String>> taskParamsList = new ArrayList<>();
                 List<Map<String, String>> examParamsList = new ArrayList<>();
-                for (String classUri : CXUtil.getClasses(classesUri)) {
+                String finalClassesUri = classesUri;
+                for (String classUri : Try.ever(() -> CXUtil.getClasses(finalClassesUri), customCallBack)) {
                     for (String taskUri : CXUtil.getTasks(baseUri, classUri)) {
                         //parse uri to params
                         String[] taskUris = taskUri.split("\\?", 2);

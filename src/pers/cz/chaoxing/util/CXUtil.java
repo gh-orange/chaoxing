@@ -99,15 +99,15 @@ public class CXUtil {
             if (response.getStatusCode() == StatusCodes.FOUND)
                 src = response.getHeader("location");
             else
-                break;
+                return response.getURL();
         }
-        if (response.getStatusCode() == StatusCodes.FOUND)
-            throw new CheckCodeException(session, src);
-        return response.getURL();
+        throw new CheckCodeException(session, src);
     }
 
-    public static List<String> getClasses(String uri) {
-        RawResponse response = session.get(uri).proxy(proxy).send();
+    public static List<String> getClasses(String uri) throws CheckCodeException {
+        RawResponse response = session.get(uri).followRedirect(false).proxy(proxy).send();
+        if (response.getStatusCode() == StatusCodes.FOUND)
+            throw new CheckCodeException(session, response.getHeader("location"));
         Document document = Jsoup.parse(response.readToText());
         return document.select("div.httpsClass.Mconright a").eachAttr("href");
     }
@@ -159,7 +159,6 @@ public class CXUtil {
      * @throws CheckCodeException
      */
     public static boolean activeTask(String baseUri, Map<String, String> params) throws CheckCodeException {
-        System.out.println(params.get("chapterId"));
         String src = baseUri + "/mycourse/studentstudy";
         RawResponse response = null;
         for (int i = 0; i < 2; i++) {
