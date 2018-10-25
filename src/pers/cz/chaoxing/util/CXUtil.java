@@ -182,7 +182,7 @@ public class CXUtil {
         return response.readToText().contains("success");
     }
 
-    public static synchronized <T extends TaskData> TaskInfo<T> getTaskInfo(String baseUri, String cardUri, Map<String, String> params, InfoType infoType) throws CheckCodeException {
+    public static <T extends TaskData> TaskInfo<T> getTaskInfo(String baseUri, String cardUri, Map<String, String> params, InfoType infoType) throws CheckCodeException {
         if (infoType.equals(InfoType.Exam))
             return (TaskInfo<T>) getExamInfo(baseUri, cardUri, params);
 //        session.post(baseUri + "/mycourse/studentstudyAjax").body(params).proxy(proxy).send();
@@ -248,10 +248,13 @@ public class CXUtil {
             params.put("id", attachment.getProperty().gettId());
             params.put("endTime", attachment.getProperty().getEndTime());
             params.put("moocTeacherId", attachment.getProperty().getMoocTeacherId());
-            JSONObject result = JSON.parseObject(session.get(baseUri + "/exam/test/isExpire").params(params).proxy(proxy).send().readToText());
-            switch (result.getInteger("status")) {
+            String responseStr = session.get(baseUri + "/exam/test/isExpire").params(params).proxy(proxy).send().readToText();
+            if (responseStr.isEmpty())
+                return false;
+            JSONObject result = JSON.parseObject(responseStr);
+            switch (result.getIntValue("status")) {
                 case 0:
-                    System.out.println("Exam need finishStandard: " + attachment.getProperty().getTitle() + "[" + result.getInteger("finishStandard") + "%]");
+                    System.out.println("Exam need finishStandard: " + attachment.getProperty().getTitle() + "[" + result.getIntValue("finishStandard") + "%]");
                     break;
                 case 1:
                     return true;
@@ -538,11 +541,21 @@ public class CXUtil {
 
     public static boolean storeHomeworkQuiz(String baseUri, HomeworkQuizConfig defaults, Map<HomeworkQuizData, List<OptionInfo>> answers) throws CheckCodeException, WrongAccountException {
         defaults.setPyFlag("1");
+        answers.forEach((homeworkQuizData, options) -> {
+                    if (options.isEmpty())
+                        options.addAll(Arrays.stream(homeworkQuizData.getOptions()).filter(OptionInfo::isRight).collect(Collectors.toList()));
+                }
+        );
         return answerHomeworkQuiz(baseUri, defaults, answers);
     }
 
     public static boolean storeExamQuiz(ExamQuizConfig defaults, Map<ExamQuizData, List<OptionInfo>> answers) throws CheckCodeException {
         defaults.setTempSave(true);
+        answers.forEach((examQuizData, options) -> {
+                    if (options.isEmpty())
+                        options.addAll(Arrays.stream(examQuizData.getOptions()).filter(OptionInfo::isRight).collect(Collectors.toList()));
+                }
+        );
         return answerExamQuiz(defaults, answers);
     }
 
@@ -655,8 +668,11 @@ public class CXUtil {
         cache false
          */
 //        params.put("_", String.valueOf(System.currentTimeMillis()));
-        if (defaults.getEnc() == null || defaults.getEnc().isEmpty())
-            switch (JSONObject.parseObject(session.get(baseUri + "/work/validate").params(params).followRedirect(false).proxy(proxy).send().readToText()).getInteger("status")) {
+        if (defaults.getEnc() == null || defaults.getEnc().isEmpty()) {
+            String responseStr = session.get(baseUri + "/work/validate").params(params).followRedirect(false).proxy(proxy).send().readToText();
+            if (responseStr.isEmpty())
+                return false;
+            switch (JSONObject.parseObject(responseStr).getIntValue("status")) {
                 case 1:
                     throw new WrongAccountException();
                 case 2:
@@ -666,6 +682,7 @@ public class CXUtil {
                 default:
                     return false;
             }
+        }
         int version = 1;
         Matcher matcher = Pattern.compile("version=(\\d)").matcher(first.getValidationUrl());
         if (matcher.find())
@@ -1130,7 +1147,7 @@ public class CXUtil {
         /*
         don't send when review mode
         */
-//        if (taskInfo.getDefaults().isFiled() || taskInfo.getDefaults().getState() == 1)
+//        if (taskInfo.getDefaults().isFiled() || 1 == taskInfo.getDefaults().getState())
 //            return false;
         Map<String, String> params = new HashMap<>();
         MessageDigest md5;

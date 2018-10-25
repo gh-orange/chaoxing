@@ -8,6 +8,7 @@ import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.exception.CheckCodeException;
 import pers.cz.chaoxing.thread.task.ExamTask;
 import pers.cz.chaoxing.util.CXUtil;
+import pers.cz.chaoxing.util.IOLock;
 import pers.cz.chaoxing.util.InfoType;
 import pers.cz.chaoxing.util.Try;
 
@@ -20,8 +21,8 @@ import java.util.Arrays;
 public class ExamManager extends Manager {
     private CallBack<CallBackData> examCallBack;
 
-    public ExamManager(int threadPoolCount) {
-        super(threadPoolCount);
+    public ExamManager(int threadPoolSize) {
+        super(threadPoolSize);
         this.examCallBack = new ExamCheckCodeCallBack("./checkCode-exam.jpeg");
     }
 
@@ -30,7 +31,7 @@ public class ExamManager extends Manager {
         paramsList.forEach(Try.once(params -> {
             TaskInfo<ExamTaskData> examInfo = Try.ever(() -> CXUtil.getTaskInfo(baseUri, uriModel, params, InfoType.Exam), customCallBack);
             Arrays.stream(examInfo.getAttachments())
-                    .filter(attachment -> !attachment.isPassed())
+                    .filter(attachment -> !attachment.isPassed() || !skipReview)
                     .forEach(attachment -> Try.ever(() -> {
                         boolean isAllowed;
                         try {
@@ -41,7 +42,7 @@ public class ExamManager extends Manager {
                         }
                         if (isAllowed) {
                             String examName = attachment.getProperty().getTitle();
-                            System.out.println("exam did not pass:" + examName);
+                            IOLock.output(() -> System.out.println("exam did not pass: " + examName));
                             ExamTask examTask = new ExamTask(examInfo, attachment, baseUri);
                             examTask.setCheckCodeCallBack(examCallBack);
                             examTask.setHasSleep(hasSleep);
@@ -49,15 +50,15 @@ public class ExamManager extends Manager {
                             examTask.setAutoComplete(autoComplete);
                             completionService.submit(examTask);
                             threadCount++;
-                            System.out.println("Added examTask to ThreadPool:" + examName);
+                            IOLock.output(() -> System.out.println("Added examTask to ThreadPool: " + examName));
                         }
                     }, customCallBack));
         }));
-        System.out.println("All exam task has been called");
+        IOLock.output(() -> System.out.println("All exam task has been called"));
     }
 
     public void close() {
         super.close();
-        System.out.println("Finished examTask count:" + threadCount);
+        IOLock.output(() -> System.out.println("Finished examTask count: " + threadCount));
     }
 }

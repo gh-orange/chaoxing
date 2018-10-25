@@ -5,6 +5,7 @@ import pers.cz.chaoxing.common.task.data.player.PlayerTaskData;
 import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.thread.task.PlayTask;
 import pers.cz.chaoxing.util.CXUtil;
+import pers.cz.chaoxing.util.IOLock;
 import pers.cz.chaoxing.util.InfoType;
 import pers.cz.chaoxing.util.Try;
 
@@ -21,8 +22,8 @@ import java.util.Map;
 public class PlayerManager extends Manager {
     private int clickCount;
 
-    public PlayerManager(int threadPoolCount) {
-        super(threadPoolCount);
+    public PlayerManager(int threadPoolSize) {
+        super(threadPoolSize);
         this.clickCount = 0;
     }
 
@@ -43,7 +44,8 @@ public class PlayerManager extends Manager {
                                     videoName = URLDecoder.decode(videoName, "utf-8");
                                 } catch (UnsupportedEncodingException ignored) {
                                 }
-                                System.out.println("Video did not pass:" + videoName);
+                                String finalVideoName = videoName;
+                                IOLock.output(() -> System.out.println("Video did not pass: " + finalVideoName));
                                 char[] charArray = attachment.getType().toCharArray();
                                 if (charArray[0] >= 'A' && charArray[0] <= 'Z')
                                     charArray[0] -= 32;
@@ -54,7 +56,7 @@ public class PlayerManager extends Manager {
                                 playTask.setSemaphore(semaphore);
                                 completionService.submit(playTask);
                                 threadCount++;
-                                System.out.println("Added playTask to ThreadPool:" + videoName);
+                                IOLock.output(() -> System.out.println("Added playTask to ThreadPool: " + finalVideoName));
                             }
                         }, customCallBack);
                         /*
@@ -72,11 +74,11 @@ public class PlayerManager extends Manager {
                 Thread.sleep(10 * 1000);
             release();
         }
-        System.out.println("All player task has been called");
+        IOLock.output(() -> System.out.println("All player task has been called"));
     }
 
     public void close() {
         super.close();
-        System.out.println("Finished playTask count:" + threadCount);
+        IOLock.output(() -> System.out.println("Finished playTask count: " + threadCount));
     }
 }

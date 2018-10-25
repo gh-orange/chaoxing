@@ -1,5 +1,6 @@
 package pers.cz.chaoxing.thread.task;
 
+import net.dongliu.requests.exception.RequestsException;
 import pers.cz.chaoxing.callback.CallBack;
 import pers.cz.chaoxing.common.OptionInfo;
 import pers.cz.chaoxing.common.quiz.QuizInfo;
@@ -18,7 +19,7 @@ import java.util.stream.Collectors;
  * @author 橙子
  * @date 2018/9/25
  */
-public abstract class Task<T extends TaskData> implements Runnable, Callable<Boolean> {
+public abstract class Task<T extends TaskData, V extends QuizData> implements Runnable, Callable<Boolean> {
     protected final String baseUri;
     final TaskInfo<T> taskInfo;
     final T attachment;
@@ -45,8 +46,15 @@ public abstract class Task<T extends TaskData> implements Runnable, Callable<Boo
             acquire();
             try {
                 doTask();
+            } catch (RequestsException e) {
+                String message = e.getLocalizedMessage();
+                String begin = ":";
+                int beginIndex = message.indexOf(begin);
+                if (-1 != beginIndex)
+                    message = message.substring(beginIndex + begin.length());
+                checkCodeCallBack.print("Net connection error: " + message);
             } catch (InterruptedException | WrongAccountException e) {
-                System.out.println(e.getMessage());
+                checkCodeCallBack.print(e.getLocalizedMessage());
             } catch (Exception ignored) {
             }
             release();
@@ -94,7 +102,11 @@ public abstract class Task<T extends TaskData> implements Runnable, Callable<Boo
         Optional.ofNullable(semaphore).ifPresent(Semaphore::release);
     }
 
-    protected abstract Map<? extends QuizData, List<OptionInfo>> getAnswers(QuizInfo quizInfo);
+    protected abstract Map<? extends QuizData, List<OptionInfo>> getAnswers(QuizInfo<V, ?> quizInfo);
+
+    protected abstract boolean storeQuestion(Map<V, List<OptionInfo>> answers) throws Exception;
+
+    protected abstract boolean answerQuestion(Map<V, List<OptionInfo>> answers) throws Exception;
 
     List<OptionInfo> autoCompleteAnswer(QuizData quizData) {
         ArrayList<OptionInfo> options = new ArrayList<>();

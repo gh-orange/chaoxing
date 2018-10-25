@@ -7,6 +7,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import pers.cz.chaoxing.callback.CallBack;
+import pers.cz.chaoxing.util.IOLock;
 import pers.cz.chaoxing.util.CXUtil;
 
 import java.awt.*;
@@ -15,7 +16,8 @@ import java.net.Proxy;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class CustomCheckCodeCallBack implements CallBack<Boolean> {
     private String completeUri;
@@ -24,37 +26,51 @@ public class CustomCheckCodeCallBack implements CallBack<Boolean> {
     private Session session;
     private String checkCodePath;
     private Scanner scanner;
-    private ReentrantLock lock;
+    private ReadWriteLock lock;
     private static Proxy proxy = CXUtil.proxy;
 
     public CustomCheckCodeCallBack(String checkCodePath) {
         this.checkCodePath = checkCodePath;
         this.scanner = new Scanner(System.in);
-        this.lock = new ReentrantLock();
+        this.lock = new ReentrantReadWriteLock();
     }
 
     @Override
     public Boolean call(Session session, String... param) {
-        lock.lock();
-        this.completeUri = param[0];
-        this.baseUri = getBaseUri(this.completeUri);
-        this.session = session;
-        do {
-            if (!saveCheckCode(this.checkCodePath))
-                break;
-            if (openFile(checkCodePath))
-                System.out.println("CheckCode image path:" + checkCodePath);
-            System.out.print("Input checkCode:");
-        } while (!setCheckCode(this.scanner.nextLine()));
-        lock.unlock();
-        return true;
+        if (this.lock.writeLock().tryLock()) {
+            this.completeUri = param[0];
+            this.baseUri = getBaseUri(this.completeUri);
+            this.session = session;
+            try {
+                IOLock.input(() -> {
+                    do {
+                        if (!saveCheckCode(this.checkCodePath))
+                            break;
+                        if (!openFile(checkCodePath))
+                            System.out.println("CheckCode image path: " + checkCodePath);
+                        System.out.print("Input checkCode:");
+                    } while (!setCheckCode(this.scanner.nextLine()));
+                });
+            } finally {
+                lock.writeLock().unlock();
+            }
+        }
+        this.lock.readLock().lock();
+        try {
+            return true;
+        } finally {
+            this.lock.readLock().unlock();
+        }
     }
 
     @Override
-    public Boolean print(String str) {
-        if (!lock.isLocked())
-            System.out.println(Thread.currentThread().getName() + ": " + str);
-        return null;
+    public void print(String first, String... more) {
+        this.lock.readLock().lock();
+        try {
+            CallBack.super.print(first, more);
+        } finally {
+            this.lock.readLock().unlock();
+        }
     }
 
     private String getBaseUri(String uri) {
@@ -94,10 +110,9 @@ public class CustomCheckCodeCallBack implements CallBack<Boolean> {
     public boolean openFile(String path) {
         try {
             Desktop.getDesktop().open(new File(path));
-        } catch (Exception e) {
-            e.printStackTrace();
-            return true;
+        } catch (Exception ignored) {
+            return false;
         }
-        return false;
+        return true;
     }
 }

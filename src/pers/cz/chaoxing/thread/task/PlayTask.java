@@ -2,7 +2,6 @@ package pers.cz.chaoxing.thread.task;
 
 import pers.cz.chaoxing.common.OptionInfo;
 import pers.cz.chaoxing.common.quiz.QuizInfo;
-import pers.cz.chaoxing.common.quiz.data.QuizData;
 import pers.cz.chaoxing.common.quiz.data.player.PlayerQuizData;
 import pers.cz.chaoxing.common.task.data.player.PlayerTaskData;
 import pers.cz.chaoxing.common.VideoInfo;
@@ -13,8 +12,9 @@ import pers.cz.chaoxing.util.Try;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.*;
+import java.util.stream.Collectors;
 
-public class PlayTask extends Task<PlayerTaskData> {
+public class PlayTask extends Task<PlayerTaskData, PlayerQuizData> {
     private final VideoInfo videoInfo;
     private int playSecond;
 
@@ -32,7 +32,7 @@ public class PlayTask extends Task<PlayerTaskData> {
     @Override
     public void doTask() throws Exception {
         checkCodeCallBack.print(this.taskName + "[player start]");
-        List<QuizInfo<PlayerQuizData, Void>> playerQuizInfoArray = getQuestions(taskInfo, attachment);
+        List<QuizInfo<PlayerQuizData, Void>> playerQuizInfoArray = Try.ever(() -> CXUtil.getPlayerQuizzes(taskInfo.getDefaults().getInitdataUrl(), attachment.getMid()), checkCodeCallBack);
         boolean isPassed = Try.ever(() -> CXUtil.onStart(taskInfo, attachment, videoInfo), checkCodeCallBack);
         if (!isPassed) {
             do {
@@ -71,24 +71,20 @@ public class PlayTask extends Task<PlayerTaskData> {
     }
 
     private void doAnswer(QuizInfo<PlayerQuizData, Void> playerQuizInfo) {
-        getAnswers(playerQuizInfo).entrySet().stream()
-                .filter(question -> answerQuestion((PlayerQuizData) question.getKey(), question.getValue()))
-                .forEach(question -> {
-                    System.out.print("answer success:");
-                    System.out.println(question.getKey().getDescription());
-                    question.getValue().forEach(optionInfo -> System.out.println(optionInfo.getName() + "." + optionInfo.getDescription()));
-                });
+        Map<PlayerQuizData, List<OptionInfo>> answers = getAnswers(playerQuizInfo);
+        if (answerQuestion(answers))
+            answers.forEach((playerQuizData, options) -> checkCodeCallBack.print(
+                    this.taskName + "[quiz answer success]",
+                    playerQuizData.getDescription(),
+                    options.stream().map(optionInfo -> optionInfo.getName() + "." + optionInfo.getDescription()).toArray(String[]::new)));
     }
 
-    private List<QuizInfo<PlayerQuizData, Void>> getQuestions(TaskInfo taskInfo, PlayerTaskData attachment) {
-        return Try.ever(() -> CXUtil.getPlayerQuizzes(taskInfo.getDefaults().getInitdataUrl(), attachment.getMid()), checkCodeCallBack);
-    }
-
-    protected Map<QuizData, List<OptionInfo>> getAnswers(QuizInfo quizInfo) {
-        Map<QuizData, List<OptionInfo>> questions = new HashMap<>();
+    @Override
+    protected Map<PlayerQuizData, List<OptionInfo>> getAnswers(QuizInfo<PlayerQuizData, ?> quizInfo) {
+        Map<PlayerQuizData, List<OptionInfo>> questions = new HashMap<>();
         if (quizInfo.getStyle().equals("QUIZ"))
             Arrays.stream(quizInfo.getDatas())
-                    .filter(quizData -> !quizData.isAnswered() && playSecond >= ((PlayerQuizData) quizData).getStartTime())
+                    .filter(quizData -> !quizData.isAnswered() && playSecond >= quizData.getStartTime())
                     .forEach(quizData -> {
                         Arrays.stream(quizData.getOptions())
                                 .filter(OptionInfo::isRight)
@@ -96,9 +92,9 @@ public class PlayTask extends Task<PlayerTaskData> {
                         if (!questions.containsKey(quizData))
                             CXUtil.getQuizAnswer(quizData).forEach(questions.computeIfAbsent(quizData, key -> new ArrayList<>())::add);
                         if (!questions.containsKey(quizData)) {
-                            System.out.println(taskName + " player answer match failure:");
-                            System.out.println(quizData.getDescription());
-                            Arrays.stream(quizData.getOptions()).forEach(optionInfo -> System.out.println(optionInfo.getName() + "." + optionInfo.getDescription()));
+                            checkCodeCallBack.print(this.taskName + "[quiz answer match failure]",
+                                    quizData.getDescription(),
+                                    Arrays.stream(quizData.getOptions()).map(optionInfo -> optionInfo.getName() + "." + optionInfo.getDescription()).toArray(String[]::new));
                             if (autoComplete)
                                 questions.put(quizData, autoCompleteAnswer(quizData));
                             else
@@ -110,18 +106,21 @@ public class PlayTask extends Task<PlayerTaskData> {
         return questions;
     }
 
-    private boolean answerQuestion(PlayerQuizData playerQuizData, List<OptionInfo> optionInfoList) {
-        try {
-            Try.ever(() -> {
-                StringBuilder stringBuffer = new StringBuilder();
-                optionInfoList.stream().map(OptionInfo::getName).forEach(stringBuffer::append);
-                String answerStr = stringBuffer.toString();
-                if (!answerStr.isEmpty())
-                    playerQuizData.setAnswered(CXUtil.answerPlayerQuiz(baseUri, playerQuizData.getValidationUrl(), playerQuizData.getResourceId(), answerStr));
-            }, checkCodeCallBack);
-            return playerQuizData.isAnswered();
-        } catch (Exception ignored) {
-            return false;
-        }
+    @Override
+    protected boolean storeQuestion(Map<PlayerQuizData, List<OptionInfo>> answers) {
+        return true;
+    }
+
+    @Override
+    protected boolean answerQuestion(Map<PlayerQuizData, List<OptionInfo>> answers) {
+        answers.forEach((quizData, options) -> {
+            String answerStr = options.stream().map(OptionInfo::getName).collect(Collectors.joining());
+            if (!answerStr.isEmpty())
+                Try.ever(() -> quizData.setAnswered(CXUtil.answerPlayerQuiz(baseUri, quizData.getValidationUrl(), quizData.getResourceId(), answerStr)), checkCodeCallBack);
+        });
+        Iterator<PlayerQuizData> iterator = answers.keySet().iterator();
+        if (iterator.hasNext())
+            return iterator.next().isAnswered();
+        return false;
     }
 }
