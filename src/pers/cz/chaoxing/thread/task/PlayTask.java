@@ -7,6 +7,7 @@ import pers.cz.chaoxing.common.task.data.player.PlayerTaskData;
 import pers.cz.chaoxing.common.VideoInfo;
 import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.util.CXUtil;
+import pers.cz.chaoxing.util.TaskState;
 import pers.cz.chaoxing.util.Try;
 
 import java.io.UnsupportedEncodingException;
@@ -37,23 +38,23 @@ public class PlayTask extends Task<PlayerTaskData, PlayerQuizData> {
         if (!isPassed) {
             do {
                 if (hasSleep)
-                    for (int i = 0; !stop && i < taskInfo.getDefaults().getReportTimeInterval(); i++)
+                    for (int i = 0; !taskState.equals(TaskState.STOP) && i < taskInfo.getDefaults().getReportTimeInterval(); i++)
                         Thread.sleep(1000);
-                if (stop)
+                if (taskState.equals(TaskState.STOP))
                     break;
-                if (!pause) {
+                if (!taskState.equals(TaskState.PAUSE)) {
                     checkCodeCallBack.print(this.taskName + "[video play " + (int) ((float) this.playSecond / this.videoInfo.getDuration() * 100) + "%]");
                     playSecond += taskInfo.getDefaults().getReportTimeInterval();
                 }
-                playerQuizInfoArray.forEach(this::doAnswer);
+                playerQuizInfoArray.forEach(Try.once(this::doAnswer));
                 if (playSecond > videoInfo.getDuration()) {
                     playSecond = videoInfo.getDuration();
                     break;
                 }
                 isPassed = Try.ever(() -> CXUtil.onPlayProgress(taskInfo, attachment, videoInfo, playSecond), checkCodeCallBack);
-            } while (pause || !isPassed);
+            } while (taskState.equals(TaskState.PAUSE) || !isPassed);
             Try.ever(() -> {
-                if (stop)
+                if (taskState.equals(TaskState.STOP))
                     CXUtil.onPause(taskInfo, attachment, videoInfo, playSecond);
                 else
                     CXUtil.onEnd(taskInfo, attachment, videoInfo);
@@ -61,7 +62,7 @@ public class PlayTask extends Task<PlayerTaskData, PlayerQuizData> {
             checkCodeCallBack.print(this.taskName + "[video play finish]");
         } else if (!playerQuizInfoArray.isEmpty()) {
             playSecond = videoInfo.getDuration();
-            playerQuizInfoArray.forEach(this::doAnswer);
+            playerQuizInfoArray.forEach(Try.once(this::doAnswer));
         }
         checkCodeCallBack.print(this.taskName + "[quiz answer finish]");
     }
@@ -70,8 +71,10 @@ public class PlayTask extends Task<PlayerTaskData, PlayerQuizData> {
         this.playSecond = playSecond;
     }
 
-    private void doAnswer(QuizInfo<PlayerQuizData, Void> playerQuizInfo) {
+    private void doAnswer(QuizInfo<PlayerQuizData, Void> playerQuizInfo) throws InterruptedException {
         Map<PlayerQuizData, List<OptionInfo>> answers = getAnswers(playerQuizInfo);
+        if (this.isStopState())
+            return;
         if (answerQuestion(answers))
             answers.forEach((playerQuizData, options) -> checkCodeCallBack.print(
                     this.taskName + "[quiz answer success]",

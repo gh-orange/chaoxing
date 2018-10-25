@@ -25,6 +25,8 @@ public class HomeworkTask extends Task<HomeworkTaskData, HomeworkQuizData> {
     public void doTask() throws Exception {
         checkCodeCallBack.print(this.taskName + "[homework start]");
         Map<HomeworkQuizData, List<OptionInfo>> answers = getAnswers(this.homeworkQuizInfo);
+        if (this.isStopState())
+            return;
         if (hasFail) {
             if (storeQuestion(answers))
                 answers.entrySet().stream()

@@ -35,7 +35,6 @@ public class ExamCheckCodeCallBack implements CallBack<CallBackData> {
 
     public ExamCheckCodeCallBack(String checkCodePath) {
         this.checkCodePath = checkCodePath;
-        this.scanner = new Scanner(System.in);
         this.lock = new ReentrantReadWriteLock();
         this.callBackData = new CallBackData(true);
     }
@@ -77,6 +76,10 @@ public class ExamCheckCodeCallBack implements CallBack<CallBackData> {
         } finally {
             this.lock.readLock().unlock();
         }
+    }
+
+    public void setScanner(Scanner scanner) {
+        this.scanner = scanner;
     }
 
     private String getBaseUri(String uri) {

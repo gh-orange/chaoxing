@@ -31,7 +31,6 @@ public class CustomCheckCodeCallBack implements CallBack<Boolean> {
 
     public CustomCheckCodeCallBack(String checkCodePath) {
         this.checkCodePath = checkCodePath;
-        this.scanner = new Scanner(System.in);
         this.lock = new ReentrantReadWriteLock();
     }
 
@@ -71,6 +70,14 @@ public class CustomCheckCodeCallBack implements CallBack<Boolean> {
         } finally {
             this.lock.readLock().unlock();
         }
+    }
+
+    public Scanner getScanner() {
+        return scanner;
+    }
+
+    public void setScanner(Scanner scanner) {
+        this.scanner = scanner;
     }
 
     private String getBaseUri(String uri) {

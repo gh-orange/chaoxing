@@ -2,6 +2,7 @@ package pers.cz.chaoxing.thread.manager;
 
 import pers.cz.chaoxing.callback.CallBack;
 import pers.cz.chaoxing.callback.CallBackData;
+import pers.cz.chaoxing.callback.impl.CustomCheckCodeCallBack;
 import pers.cz.chaoxing.callback.impl.ExamCheckCodeCallBack;
 import pers.cz.chaoxing.common.task.data.exam.ExamTaskData;
 import pers.cz.chaoxing.common.task.TaskInfo;
@@ -24,6 +25,7 @@ public class ExamManager extends Manager {
     public ExamManager(int threadPoolSize) {
         super(threadPoolSize);
         this.examCallBack = new ExamCheckCodeCallBack("./checkCode-exam.jpeg");
+        ((ExamCheckCodeCallBack) this.examCallBack).setScanner(((CustomCheckCodeCallBack) this.customCallBack).getScanner());
     }
 
     @Override

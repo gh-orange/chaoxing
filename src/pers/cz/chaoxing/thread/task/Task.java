@@ -8,6 +8,7 @@ import pers.cz.chaoxing.common.quiz.data.QuizData;
 import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.common.task.data.TaskData;
 import pers.cz.chaoxing.exception.WrongAccountException;
+import pers.cz.chaoxing.util.TaskState;
 import pers.cz.chaoxing.util.Try;
 
 import java.util.*;
@@ -24,8 +25,7 @@ public abstract class Task<T extends TaskData, V extends QuizData> implements Ru
     final TaskInfo<T> taskInfo;
     final T attachment;
     String taskName;
-    boolean stop;
-    boolean pause;
+    TaskState taskState;
     boolean hasFail;
     boolean hasSleep;
     boolean autoComplete;
@@ -37,7 +37,7 @@ public abstract class Task<T extends TaskData, V extends QuizData> implements Ru
         this.attachment = attachment;
         this.baseUri = baseUri;
         this.hasSleep = this.autoComplete = true;
-        this.hasFail = this.stop = this.pause = false;
+        this.taskState = TaskState.RUNNING;
     }
 
     @Override
@@ -70,12 +70,8 @@ public abstract class Task<T extends TaskData, V extends QuizData> implements Ru
 
     protected abstract void doTask() throws Exception;
 
-    public void setStop(boolean stop) {
-        this.stop = stop;
-    }
-
-    public void setPause(boolean pause) {
-        this.pause = pause;
+    public void setTaskState(TaskState taskState) {
+        this.taskState = taskState;
     }
 
     public void setHasSleep(boolean hasSleep) {
@@ -120,5 +116,18 @@ public abstract class Task<T extends TaskData, V extends QuizData> implements Ru
             options.add(optionInfo);
         }
         return options;
+    }
+
+    boolean isStopState() throws InterruptedException {
+        while (true)
+            switch (taskState) {
+                case PAUSE:
+                    Thread.sleep(60 * 1000);
+                    break;
+                case STOP:
+                    return true;
+                default:
+                    return false;
+            }
     }
 }

@@ -2,6 +2,8 @@ package pers.cz.chaoxing.thread.manager;
 
 import pers.cz.chaoxing.callback.CallBack;
 import pers.cz.chaoxing.callback.CallBackData;
+import pers.cz.chaoxing.callback.impl.CustomCheckCodeCallBack;
+import pers.cz.chaoxing.callback.impl.ExamCheckCodeCallBack;
 import pers.cz.chaoxing.callback.impl.HomeworkCheckCodeCallBack;
 import pers.cz.chaoxing.common.quiz.QuizInfo;
 import pers.cz.chaoxing.common.quiz.data.homework.HomeworkQuizConfig;
@@ -26,6 +28,7 @@ public class HomeworkManager extends Manager {
     public HomeworkManager(int threadPoolSize) {
         super(threadPoolSize);
         this.homeworkCallBack = new HomeworkCheckCodeCallBack("./checkCode-homework.jpeg");
+        ((HomeworkCheckCodeCallBack) this.homeworkCallBack).setScanner(((CustomCheckCodeCallBack) this.customCallBack).getScanner());
     }
 
     @Override

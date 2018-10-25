@@ -36,7 +36,6 @@ public class HomeworkCheckCodeCallBack implements CallBack<CallBackData> {
 
     public HomeworkCheckCodeCallBack(String checkCodePath) {
         this.checkCodePath = checkCodePath;
-        this.scanner = new Scanner(System.in);
         this.lock = new ReentrantReadWriteLock();
         this.callBackData = new CallBackData(true);
     }
@@ -78,6 +77,10 @@ public class HomeworkCheckCodeCallBack implements CallBack<CallBackData> {
         } finally {
             this.lock.readLock().unlock();
         }
+    }
+
+    public void setScanner(Scanner scanner) {
+        this.scanner = scanner;
     }
 
     private String getBaseUri(String uri) {

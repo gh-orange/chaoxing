@@ -7,7 +7,6 @@ import pers.cz.chaoxing.exception.WrongAccountException;
 import pers.cz.chaoxing.thread.manager.ExamManager;
 import pers.cz.chaoxing.thread.manager.HomeworkManager;
 import pers.cz.chaoxing.thread.manager.PlayerManager;
-import pers.cz.chaoxing.thread.task.PlayTask;
 import pers.cz.chaoxing.util.CXUtil;
 import pers.cz.chaoxing.util.IOLock;
 
@@ -37,13 +36,13 @@ import java.util.concurrent.Semaphore;
  * @version 1.2.2
  */
 public class Application {
-
     public static void main(String[] args) {
         System.out.println("ChaoxingPlugin v1.2.2 - powered by orange");
         System.out.println("License - GPLv3: This is a free & share software");
         System.out.println("You can checking source code from: https://github.com/cz111000/chaoxing");
         try (Scanner scanner = new Scanner(System.in)) {
             CustomCheckCodeCallBack customCallBack = new CustomCheckCodeCallBack("./checkCode-custom.jpeg");
+            customCallBack.setScanner(scanner);
             String username;
             String password;
             String checkCode;
@@ -163,29 +162,6 @@ public class Application {
             String finalMessage = message;
             IOLock.output(() -> System.out.println("Net connection error: " + finalMessage));
         } catch (Exception ignored) {
-            ignored.printStackTrace();
         }
     }
-
-    private static void inputCheck(Scanner scanner, List<PlayTask> threadList) {
-        if (scanner.hasNextByte()) {
-            boolean stop = false;
-            boolean pause = false;
-            switch (scanner.nextByte()) {
-                case 's':
-                case 'S':
-                    stop = true;
-                    break;
-                case 'p':
-                case 'P':
-                    pause = true;
-                    break;
-            }
-            for (PlayTask task : threadList) {
-                task.setStop(stop);
-                task.setPause(pause);
-            }
-        }
-    }
-
 }

@@ -9,7 +9,7 @@ Enjoy your days, aha!
 
 # How to Use
 Necessary condition:
-+ Java runtime environment
++ Java runtime environment (version must be higher than 1.8)
 
 Typing this words in your console:
 + java -jar chaoxing.jar
@@ -31,4 +31,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # TODO
-+ add key control
+- [ ] add key control
+- [x] auto answer exam
+- [x] using lambda rewrite

@@ -1,7 +1,6 @@
 package pers.cz.chaoxing.thread.task;
 
 import pers.cz.chaoxing.common.quiz.QuizInfo;
-import pers.cz.chaoxing.common.quiz.data.QuizData;
 import pers.cz.chaoxing.common.quiz.data.exam.ExamQuizConfig;
 import pers.cz.chaoxing.common.quiz.data.exam.ExamQuizData;
 import pers.cz.chaoxing.common.OptionInfo;
@@ -31,9 +30,11 @@ public class ExamTask extends Task<ExamTaskData, ExamQuizData> {
         ExamQuizData examQuizData = examQuizInfo.getDatas()[examQuizInfo.getDefaults().getStart()];
         answers.put(examQuizData, Arrays.stream(examQuizData.getOptions()).filter(OptionInfo::isRight).collect(Collectors.toList()));
         storeQuestion(answers);
-        IntStream.range(0, examQuizInfo.getDatas().length).forEach(i -> {
+        IntStream.range(0, examQuizInfo.getDatas().length).boxed().forEach(Try.once(i -> {
             examQuizInfo.getDefaults().setStart(i);
             Try.ever(() -> CXUtil.getExamQuiz(baseUri, examQuizInfo), checkCodeCallBack);
+            if (this.isStopState())
+                return;
             answers.clear();
             answers.putAll(getAnswers(examQuizInfo));
             if (storeQuestion(answers))
@@ -43,7 +44,7 @@ public class ExamTask extends Task<ExamTaskData, ExamQuizData> {
                                 this.taskName + "[exam store success]",
                                 entry.getKey().getDescription(),
                                 entry.getValue().stream().map(optionInfo -> optionInfo.getName() + "." + optionInfo.getDescription()).toArray(String[]::new)));
-        });
+        }));
         if (!hasFail)
             examQuizInfo.setPassed(answerQuestion(answers));
         if (hasSleep)
