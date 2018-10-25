@@ -48,7 +48,7 @@ public class CustomCheckCodeCallBack implements CallBack<Boolean> {
                         if (!openFile(checkCodePath))
                             System.out.println("CheckCode image path: " + checkCodePath);
                         System.out.print("Input checkCode:");
-                    } while (!setCheckCode(this.scanner.nextLine()));
+                    } while (!setCheckCode(this.scanner.next()));
                 });
             } finally {
                 lock.writeLock().unlock();

@@ -57,7 +57,7 @@ public class Application {
                         if (!customCallBack.openFile(customCallBack.getCheckCodePath()))
                             System.out.println("CheckCode image path:" + customCallBack.getCheckCodePath());
                         System.out.print("Input checkCode:");
-                        checkCode = scanner.nextLine();
+                        checkCode = scanner.next();
                     } while (!CXUtil.login(username, password, checkCode));
                     break;
                 } catch (WrongAccountException e) {

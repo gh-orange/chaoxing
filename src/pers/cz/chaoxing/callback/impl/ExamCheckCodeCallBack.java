@@ -53,7 +53,7 @@ public class ExamCheckCodeCallBack implements CallBack<CallBackData> {
                         if (!openFile(checkCodePath))
                             System.out.println("CheckCode image path: " + checkCodePath);
                         System.out.print("Input checkCode:");
-                        callBackData = setCheckCode(this.scanner.nextLine(), param[1], param[2], param[3], param[4]);
+                        callBackData = setCheckCode(this.scanner.next(), param[1], param[2], param[3], param[4]);
                     } while (!callBackData.isStatus());
                 });
             } finally {
