@@ -188,7 +188,7 @@ public class CXUtil {
 //        session.get(baseUri + "/mycourse/studentstudycourselist").params(params).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(session, response.getHeader("location"));
-        String responseStr = StringUtil.subStringBetweenFirst(response.readToText(), "mArg = ", ";");
+        String responseStr = StringUtil.subStringBetweenFirst(StringUtil.subStringAfterFirst(response.readToText(), "try{"), "mArg = ", ";");
         try {
             switch (infoType) {
                 case Video:
