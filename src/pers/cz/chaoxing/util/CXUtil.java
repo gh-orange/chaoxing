@@ -109,6 +109,8 @@ public class CXUtil {
         response = session.post(form.absUrl("action")).body(body).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
             responseStr = session.get(response.getHeader("location")).cookies(session.currentCookies()).proxy(proxy).send().readToText();
+        else
+            responseStr = response.readToText();
         if (responseStr.contains("密码错误"))
             throw new WrongAccountException();
         return !responseStr.contains("用户登录");
