@@ -10,6 +10,7 @@ import org.jsoup.nodes.TextNode;
 import org.jsoup.select.Elements;
 import pers.cz.chaoxing.common.OptionInfo;
 import pers.cz.chaoxing.common.VideoInfo;
+import pers.cz.chaoxing.common.other.SchoolInfo;
 import pers.cz.chaoxing.common.quiz.QuizInfo;
 import pers.cz.chaoxing.common.quiz.data.QuizData;
 import pers.cz.chaoxing.common.quiz.data.exam.ExamQuizConfig;
@@ -61,29 +62,53 @@ public class CXUtil {
     //    public static Proxy proxy = Proxies.httpProxy("10.14.36.103", 8080);
     public static Proxy proxy = null;
 
-    public static boolean login(String username, String password, String checkCode) throws WrongAccountException {
-        String indexUri = StringUtil.subStringBetweenFirst(session.get("http://dlnu.fy.chaoxing.com/topjs?index=1").proxy(proxy).send().readToText(), "location.href = \\\"", "\\\"");
-        if (indexUri.isEmpty())
-            return false;
-        String responseStr = session.get(indexUri).proxy(proxy).send().readToText();
+    public static SchoolInfo searchSchool(String schoolName) {
+        String responseStr = session.get("http://passport2.chaoxing.com/login").proxy(proxy).send().readToText();
+        if (responseStr.isEmpty())
+            return new SchoolInfo(false);
+        Document document = Jsoup.parse(responseStr);
+        String productid = document.getElementById("productid").val();
+        Map<String, String> body = new HashMap<>();
+        if (!productid.isEmpty())
+            body.put("productid", productid);
+        body.put("pid", document.getElementById("pid").val());
+        body.put("allowJoin", "0");
+        body.put("filter", schoolName);
+        try {
+            return session.post("http://passport2.chaoxing.com/org/searchforms").body(body).proxy(proxy).send().readToJson(SchoolInfo.class);
+        } catch (JSONException ignored) {
+            return new SchoolInfo(false);
+        }
+    }
+
+    public static boolean login(int fid, String username, String password, String checkCode) throws WrongAccountException {
+        Map<String, String> params = new HashMap<>();
+        params.put("fid", String.valueOf(fid));
+//        params.put("refer", "http://i.mooc.chaoxing.com/space/index.shtml");
+        RawResponse response = session.get("http://passport2.chaoxing.com/login").params(params).proxy(proxy).send();
+        String responseStr = response.readToText();
         if (responseStr.isEmpty())
             return false;
         Document document = Jsoup.parse(responseStr);
-        Map<String, String> postBody = new HashMap<>();
-        postBody.put("refer_0x001", document.getElementById("refer_0x001").val());
-        postBody.put("pid", document.getElementById("pid").val());
-        postBody.put("pidName", document.getElementById("pidName").val());
-        postBody.put("fid", document.getElementById("fid").val());
-        postBody.put("fidName", document.getElementById("fidName").val());
-        postBody.put("allowJoin", document.select("input[name=allowJoin]").val());
-        postBody.put("isCheckNumCode", document.select("input[name=isCheckNumCode]").val());
-        postBody.put("f", document.select("input[name=f]").val());
-        postBody.put("productid", document.getElementById("productid").val());
-        postBody.put("verCode", document.getElementById("verCode").val());
-        postBody.put("uname", username);
-        postBody.put("password", password);
-        postBody.put("numcode", checkCode);
-        responseStr = session.post("http://passport2.chaoxing.com/login?refer=http://i.mooc.chaoxing.com/space/index.shtml").body(postBody).proxy(proxy).send().readToText();
+        Map<String, String> body = new HashMap<>();
+        body.put("refer_0x001", document.getElementById("refer_0x001").val());
+        body.put("pid", document.getElementById("pid").val());
+        body.put("pidName", document.getElementById("pidName").val());
+        body.put("fid", document.getElementById("fid").val());
+        body.put("fidName", document.getElementById("fidName").val());
+        body.put("allowJoin", document.select("input[name=allowJoin]").val());
+        body.put("isCheckNumCode", document.select("input[name=isCheckNumCode]").val());
+        body.put("f", document.select("input[name=f]").val());
+        body.put("productid", document.getElementById("productid").val());
+        body.put("verCode", document.getElementById("verCode").val());
+        body.put("uname", username);
+        body.put("password", password);
+        body.put("numcode", checkCode);
+        FormElement form = document.select("form#form").forms().get(0);
+        form.setBaseUri("http://passport2.chaoxing.com");
+        response = session.post(form.absUrl("action")).body(body).followRedirect(false).proxy(proxy).send();
+        if (response.getStatusCode() == StatusCodes.FOUND)
+            responseStr = session.get(response.getHeader("location")).cookies(session.currentCookies()).proxy(proxy).send().readToText();
         if (responseStr.contains("密码错误"))
             throw new WrongAccountException();
         return !responseStr.contains("用户登录");

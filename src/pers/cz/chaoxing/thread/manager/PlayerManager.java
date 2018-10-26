@@ -54,6 +54,7 @@ public class PlayerManager extends Manager {
                                 playTask.setCheckCodeCallBack(customCallBack);
                                 playTask.setHasSleep(hasSleep);
                                 playTask.setSemaphore(semaphore);
+                                playTask.setAutoComplete(autoComplete);
                                 completionService.submit(playTask);
                                 threadCount++;
                                 IOLock.output(() -> System.out.println("Added playTask to ThreadPool: " + finalVideoName));
