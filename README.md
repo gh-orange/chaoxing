@@ -3,13 +3,13 @@
 
 A hands-free tool for watching video and doing homework&exam faster
 
-It can auto playing video and doing homework&exam on background. The only you need to do is pressing your account, password and checkCode.
+It can **auto** playing video and doing homework&exam **on background**. The only you need to do is pressing your *school name* or *fid*, *account*, *password* and *checkCode*.
 
 Enjoy your days, aha!
 
 # How to Use
 Necessary condition:
-+ Java runtime environment (version must be higher than 1.8)
++ **J**ava **R**untime **E**nvironment (**version must be higher than 1.8**)
 
 Typing this words in your console:
 + java -jar chaoxing.jar
@@ -31,6 +31,11 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # TODO
+- [x] ~~choose school fid~~
+- [x] ~~auto play video~~
+- [x] ~~auto answer quiz~~
+- [x] ~~auto answer homework~~
+- [x] ~~auto answer exam~~
+- [x] ~~store right answers~~
+- [x] ~~using lambda rewrite~~
 - [ ] add key control
-- [x] auto answer exam
-- [x] using lambda rewrite
