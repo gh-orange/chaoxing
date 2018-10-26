@@ -1,11 +1,15 @@
 # ChaoxingPlugin
 [![Build Status](https://travis-ci.org/cz111000/chaoxing.svg?branch=master)](https://travis-ci.org/cz111000/chaoxing)
 
+:rocket: :rocket: :rocket: :rocket:
+
 A hands-free tool for watching video and doing homework&exam faster
+
+[Download Release](https://github.com/cz111000/chaoxing/releases) | [中文说明](https://github.com/cz111000/chaoxing/blob/master/README-zh.md)
 
 It can **auto** playing video and doing homework&exam **on background**. The only you need to do is pressing your *school name* or *fid*, *account*, *password* and *checkCode*.
 
-Enjoy your days, aha!
+Enjoy your days, aha! :laughing:
 
 # How to Use
 Necessary condition:
@@ -19,7 +23,7 @@ Copyright (C) 2018  orange
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
+the Free Software Foundation, either version 2 of the License, or
 any later version.
 
 This program is distributed in the hope that it will be useful,
