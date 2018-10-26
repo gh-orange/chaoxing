@@ -114,7 +114,7 @@ public class Application {
                     if (!customCallBack.openFile(customCallBack.getCheckCodePath()))
                         System.out.println("CheckCode image path:" + customCallBack.getCheckCodePath());
                     System.out.print("Input checkCode:");
-                    checkCode = scanner.next();
+                    checkCode = scanner.nextLine().replaceAll("\\s", "");
                 } while (!CXUtil.login(schoolData.getId(), username, password, checkCode));
                 break;
             } catch (WrongAccountException e) {

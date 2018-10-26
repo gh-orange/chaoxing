@@ -208,9 +208,9 @@ public class CXUtil {
         if (infoType.equals(InfoType.Exam))
             return (TaskInfo<T>) getExamInfo(baseUri, cardUri, params);
 //        session.post(baseUri + "/mycourse/studentstudyAjax").body(params).proxy(proxy).send();
-        params.put("num", String.valueOf(infoType.getId()));
         for (Map.Entry<String, String> param : params.entrySet())
             cardUri = cardUri.replaceAll("(?i)=" + param.getKey(), "=" + param.getValue());
+        cardUri = cardUri.replaceAll("(?i)=num", "=" + String.valueOf(infoType.getId()));
         RawResponse response = session.get(baseUri + cardUri).followRedirect(false).proxy(proxy).send();
 //        session.get(baseUri + "/mycourse/studentstudycourselist").params(params).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
@@ -259,7 +259,6 @@ public class CXUtil {
         RawResponse response = session.get(baseUri + uri + "/" + objectId).params(params).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(session, response.getHeader("location"));
-//        return response.readToJson(VideoInfo.class);
         return response.readToJson(VideoInfo.class);
     }
 
