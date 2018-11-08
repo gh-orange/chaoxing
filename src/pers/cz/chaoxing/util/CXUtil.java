@@ -146,9 +146,12 @@ public class CXUtil {
         /*
         return 'success'
          */
-        String logUri = document.select("script[type=text/javascript]").last().attr("src");
-        if (!logUri.isEmpty())
-            session.get(logUri).proxy(proxy).send();
+        document.select("script[src=~log]")
+                .stream()
+                .map(script -> script.attr("src"))
+                .filter(logUri -> !logUri.isEmpty())
+                .map(logUri -> logUri.startsWith("/") ? baseUri + logUri : logUri)
+                .forEach(logUri -> session.get(logUri).proxy(proxy).send());
         Elements elements = new Elements();
         document.select("h3.clearfix").stream()
                 .filter(element -> !element.select("em.orange").text().isEmpty())
