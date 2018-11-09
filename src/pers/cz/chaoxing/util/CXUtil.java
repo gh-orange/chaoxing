@@ -111,7 +111,7 @@ public class CXUtil {
             responseStr = session.get(response.getHeader("location")).cookies(session.currentCookies()).proxy(proxy).send().readToText();
         else
             responseStr = response.readToText();
-        if (responseStr.contains("密码错误"))
+        if (responseStr.contains("密码错误") || responseStr.contains("参数为空"))
             throw new WrongAccountException();
         return !responseStr.contains("用户登录");
     }
@@ -314,7 +314,7 @@ public class CXUtil {
      * @throws CheckCodeException
      */
     public static boolean onStart(TaskInfo<PlayerTaskData> taskInfo, PlayerTaskData attachment, VideoInfo videoInfo) throws CheckCodeException {
-        return sendLog(taskInfo, attachment, videoInfo, (int) (attachment.getHeadOffset() / 1000), 3);
+        return sendLog(taskInfo, attachment, videoInfo, (int) (attachment.getHeadOffset() / 1000), 0);
     }
 
     /**
@@ -339,7 +339,7 @@ public class CXUtil {
      * @throws CheckCodeException
      */
     public static boolean onPlay(TaskInfo taskInfo, PlayerTaskData attachment, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
-        return sendLog(taskInfo, attachment, videoInfo, playSecond, 3);
+        return sendLog(taskInfo, attachment, videoInfo, playSecond, 0);
     }
 
     /**
@@ -353,7 +353,7 @@ public class CXUtil {
      */
     public static boolean onPause(TaskInfo taskInfo, PlayerTaskData attachment, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
         if (!Optional.ofNullable(taskInfo.getDefaults().getChapterId()).orElse("").isEmpty())
-            return sendLog(taskInfo, attachment, videoInfo, playSecond, 2);
+            return sendLog(taskInfo, attachment, videoInfo, playSecond, 0);
         return false;
     }
 
@@ -421,7 +421,7 @@ public class CXUtil {
         Element element = Jsoup.parse(responseStr).selectFirst("div.CeYan");
         Element form = element.selectFirst("form#form1");
         Elements questions = element.select("div.TiMu");
-        responseStr = StringUtil.subStringAfterFirst(responseStr, "$(\"#answerwqbid\")");
+        responseStr = StringUtil.subStringBeforeFirst(responseStr, "$(\"#answerwqbid\")");
         QuizInfo<HomeworkQuizData, HomeworkQuizConfig> homeworkQuizInfo = new QuizInfo<>();
         homeworkQuizInfo.setDefaults(new HomeworkQuizConfig());
         homeworkQuizInfo.setDatas(new HomeworkQuizData[questions.size()]);
@@ -777,6 +777,8 @@ public class CXUtil {
         RawResponse response = session.post(first.getValidationUrl()).params(params).body(body).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(session, response.getHeader("location"));
+        if (response.getStatusCode() != StatusCodes.OK)
+            return false;
         String responseStr = response.readToText();
         return !responseStr.contains("提交失败") && !responseStr.contains("false");
     }
@@ -1112,50 +1114,70 @@ public class CXUtil {
     }
 
     /**
-     * Flash ActionScript code:
-     * public function onSendlog(me_data:Object, isDrag:int):void
+     * JavaScript Code:
+     * var sendLog_ = function (player, isdrag, currentTimeSec, callback) {
+     * if (!params.reportUrl) {
+     * return
+     * }
+     * var format = '[{0}][{1}][{2}][{3}][{4}][{5}][{6}][{7}]',
+     * clipTime = (params.startTime || '0') + '_' + (params.endTime || params.duration);
+     * var enc = Ext.String.format(format, params.clazzId, params.userid, params.jobid, params.objectId, currentTimeSec * 1000, 'd_yHJ!$pdA~5', params.duration * 1000, clipTime);
+     * var rurl = [params.reportUrl, '/', params.dtoken, '?clazzId=', params.clazzId, '&playingTime=', currentTimeSec, '&duration=', params.duration, '&clipTime=', clipTime, '&objectId=', params.objectId, '&otherInfo=', params.otherInfo, '&jobid=', params.jobid, '&userid=', params.userid, '&isdrag=', isdrag, '&view=pc', '&enc=', md5(enc), '&rt=', params.rt, '&dtype=Video'].join('');
+     * logFunc(player, rurl, callback)
+     * };
      * {
-     * var paramStr:*=null;
-     * var playSecond:*=0;
-     * var md5Str:*=null;
-     * var state:*=0;
-     * if (me_data.chapterId && isDrag != 1) {
-     * state = 0;
-     * if (isDrag == 4 || isDrag == 2)
-     * state = 2;
-     * else if (isDrag == 3)
-     * state = 1;
-     * paramStr = "s=" + me_data.clazzId + "&c=" + me_data.chapterId + "&o=" + me_data.objectId + "&st=" + state + "&m=0&d=" + me_data.duration;
-     * md5Str = MD5.startMd("[" + me_data.chapterId + "]" + "[" + me_data.clazzId + "]" + "[" + me_data.duration + "]" + "[0]" + "[" + me_data.objectId + "]" + "[" + state + "]" + "[535e933c498001]");
-     * paramStr = paramStr + "&enc=" + md5Str;
-     * this.jQuery("sendlogzt", paramStr);
+     * singleton: function (c) {
+     * var f = this,
+     * e = parseInt(Math.random() * 9999999);
+     * c.on('play', function () {
+     * f.setCookie('videojs_id', e)
+     * });
+     * c.setInterval(function () {
+     * var g = f.getCookie('videojs_id');
+     * if (g != e) {
+     * c.pause()
      * }
-     * if (me_data.isSendLog != "1")
-     * return;
-     * paramStr = "";
-     * var isSendLog:*="";
-     * for (dataName in me_data) {
-     * if (dataName == "dtoken")
-     * continue;
-     * paramStr = paramStr + "&" + dataName + "=" + me_data[dataName];
+     * }, 1000)
      * }
-     * playSecond = this.getPlaySecond();
-     * paramStr = paramStr + "&view=pc&playingTime=" + playSecond;
-     * paramStr = paramStr + "&isdrag=" + isDrag;
-     * md5Str = MD5.startMd("[" + me_data.clazzId + "]" + "[" + me_data.userid + "]" + "[" + me_data.jobid + "]" + "[" + me_data.objectId + "]" + "[" + playSecond * 1000 + "]" + "[d_yHJ!$pdA~5]" + "[" + int
-     * (me_data.duration) * 1000 + "]" + "[" + me_data.clipTime + "]");
-     * paramStr = paramStr + "&enc=" + md5Str;
-     * paramStr = paramStr.substring(1);
-     * this.jQuery("logFunc", paramStr);
-     * return;
+     * setCookie: function (f, h) {
+     * var c = arguments,
+     * k = arguments.length,
+     * e = (k > 2) ? c[2] : null,
+     * j = (k > 3) ? c[3] : '/',
+     * g = (k > 4) ? c[4] : null,
+     * i = (k > 5) ? c[5] : false;
+     * document.cookie = f + '=' + escape(h) + ((e === null) ? '' : ('; expires=' + e.toGMTString())) + ((j === null) ? '' : ('; path=' + j)) + ((g === null) ? '' : ('; domain=' + g)) + ((i === true) ? '; secure' : '')
      * }
-     **/
+     * getCookie: function (g) {
+     * var e = g + '=',
+     * k = e.length,
+     * c = document.cookie.length,
+     * h = 0,
+     * f = 0;
+     * while (h < c) {
+     * f = h + k;
+     * if (document.cookie.substring(h, f) == e) {
+     * return this.getCookieVal(f)
+     * }
+     * h = document.cookie.indexOf(' ', h) + 1;
+     * if (h === 0) {
+     * break
+     * }
+     * }
+     * return null
+     * }
+     * getCookieVal: function (e) {
+     * var c = document.cookie.indexOf(';', e);
+     * if (c == - 1) {
+     * c = document.cookie.length
+     * }
+     * return unescape(document.cookie.substring(e, c))
+     * }
+     * }
+     */
     private static boolean sendLog(TaskInfo taskInfo, PlayerTaskData attachment, VideoInfo videoInfo, int playSecond, int dragStatus) throws CheckCodeException {
-        /*
-        don't send when review mode
-        */
-//        if (taskInfo.getDefaults().isFiled() || 1 == taskInfo.getDefaults().getState())
-//            return false;
+        if (taskInfo.getAttachments().length == 0)
+            return false;
         Map<String, String> params = new HashMap<>();
         MessageDigest md5;
         try {
@@ -1163,38 +1185,6 @@ public class CXUtil {
         } catch (NoSuchAlgorithmException ignored) {
             return false;
         }
-        String chapterId = taskInfo.getDefaults().getChapterId();
-        if (!Optional.ofNullable(chapterId).orElse("").isEmpty()) {
-            int state;
-            switch (dragStatus) {
-                case 3:
-                    state = 1;
-                    break;
-                case 2:
-                case 4:
-                    state = 2;
-                    break;
-                default:
-                    state = 0;
-                    break;
-            }
-            md5.update(("[" + taskInfo.getDefaults().getChapterId() + "]" + "[" + taskInfo.getDefaults().getClazzId() + "]" + "[" + videoInfo.getDuration() + "]" + "[0]" + "[" + videoInfo.getObjectid() + "]" + "[" + state + "]" + "[535e933c498001]").getBytes());
-            StringBuilder md5Str = new StringBuilder(new BigInteger(1, md5.digest()).toString(16));
-            while (md5Str.length() < 32)
-                md5Str.insert(0, "0");
-            params.put("u", taskInfo.getDefaults().getUserid());
-            params.put("s", taskInfo.getDefaults().getClazzId());
-            params.put("c", taskInfo.getDefaults().getChapterId());
-            params.put("o", videoInfo.getObjectid());
-            params.put("st", String.valueOf(state));
-            params.put("m", "0");
-            params.put("d", String.valueOf(videoInfo.getDuration()));
-            params.put("enc", md5Str.toString());
-            session.get("http://data.xxt.aichaoxing.com/analysis/datalog").params(params).proxy(proxy).send();
-            params.clear();
-        }
-        if (taskInfo.getAttachments().length == 0)
-            return false;
         String clipTime = videoInfo.getStartTime() + "_" + (videoInfo.getEndTime() != 0 ? videoInfo.getEndTime() : videoInfo.getDuration());
         params.put("clazzId", taskInfo.getDefaults().getClazzId());
         params.put("objectId", videoInfo.getObjectid());
@@ -1214,10 +1204,12 @@ public class CXUtil {
             md5Str.insert(0, "0");
         params.put("enc", md5Str.toString());
         RawResponse response;
+        List<Cookie> cookies = new ArrayList<>(session.currentCookies());
+        cookies.add(new Cookie("mooc1-1.chaoxing.com", "/", "videojs_id", String.valueOf(attachment.getVideoJSId()), -1, false, true));
         if (!Optional.ofNullable(videoInfo.getDtoken()).orElse("").isEmpty())
-            response = session.get(taskInfo.getDefaults().getReportUrl() + "/" + videoInfo.getDtoken()).params(params).followRedirect(false).proxy(proxy).send();
+            response = session.get(taskInfo.getDefaults().getReportUrl() + "/" + videoInfo.getDtoken()).params(params).cookies(cookies).followRedirect(false).proxy(proxy).send();
         else
-            response = session.get(taskInfo.getDefaults().getReportUrl()).params(params).followRedirect(false).proxy(proxy).send();
+            response = session.get(taskInfo.getDefaults().getReportUrl()).params(params).cookies(cookies).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(session, response.getHeader("location"));
         return JSON.parseObject(response.readToText()).getBoolean("isPassed");

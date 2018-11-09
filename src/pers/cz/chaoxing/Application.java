@@ -16,7 +16,6 @@ import pers.cz.chaoxing.util.Try;
 
 import java.util.*;
 import java.util.concurrent.Semaphore;
-import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
 /**
@@ -39,7 +38,7 @@ import java.util.stream.IntStream;
 
 /**
  * @author 橙子
- * @version 1.3.1
+ * @version 1.3.2
  */
 public class Application {
     private static String baseUri = "https://mooc1-1.chaoxing.com";
@@ -93,7 +92,7 @@ public class Application {
     }
 
     private static void copyright() {
-        System.out.println("ChaoxingPlugin v1.3.1 - powered by orange");
+        System.out.println("ChaoxingPlugin v1.3.2 - powered by orange");
         System.out.println("License - GPLv3: This is a free & share software");
         System.out.println("You can checking source code from: https://github.com/cz111000/chaoxing");
     }

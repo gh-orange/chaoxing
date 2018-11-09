@@ -8,6 +8,7 @@ public class PlayerTaskData extends TaskData<PlayerDataProperty> {
     private long playTime;
     private boolean job;
     private String objectId;
+    private int videoJSId;
 
     public long getHeadOffset() {
         return headOffset;
@@ -47,5 +48,13 @@ public class PlayerTaskData extends TaskData<PlayerDataProperty> {
 
     public void setPlayTime(long playTime) {
         this.playTime = playTime;
+    }
+
+    public int getVideoJSId() {
+        return videoJSId;
+    }
+
+    public void setVideoJSId(int videoJSId) {
+        this.videoJSId = videoJSId;
     }
 }

@@ -28,6 +28,7 @@ public class PlayTask extends Task<PlayerTaskData, PlayerQuizData> {
         } catch (UnsupportedEncodingException ignored) {
             this.taskName = videoInfo.getFilename();
         }
+        this.attachment.setVideoJSId((int) (Math.random() * 9999999));
     }
 
     @Override
