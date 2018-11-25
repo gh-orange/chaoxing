@@ -38,7 +38,7 @@ import java.util.stream.IntStream;
  * @version 1.3.2
  */
 public class Application {
-    private static String baseUri = "https://mooc1-1.chaoxing.com";
+    private static final String BASE_URI = "https://mooc1-1.chaoxing.com";
     private static String classesUri = "";
     private static String cardUriModel = "";
     private static String examUriModel = "";
@@ -85,7 +85,7 @@ public class Application {
                 ManagerModel[] managers = {playerManager, homeworkManager, examManager};
                 Application.initManagers(
                         managers,
-                        BASE_URI, cardUriModel, examUriModel,
+                        cardUriModel, examUriModel,
                         taskParamsList, examParamsList,
                         hasSleep, skipReview, completeStyle,
                         semaphore
@@ -225,7 +225,7 @@ public class Application {
 
     private static List<Map<String, String>> getTaskParams(String classUri, CallBack checkCodeCallBack) {
         List<Map<String, String>> taskParamsList = new ArrayList<>();
-        for (String taskUri : CXUtil.getTasks(baseUri, classUri)) {
+        for (String taskUri : CXUtil.getTasks(Application.BASE_URI, classUri)) {
             //parse uri to params
             String[] taskUris = taskUri.split("\\?", 2);
             Map<String, String> taskParams = new HashMap<>();
@@ -239,9 +239,9 @@ public class Application {
         return taskParamsList;
     }
 
-    private static List<Map<String, String>> getExamParams(String baseUri, String classUri) {
+    private static List<Map<String, String>> getExamParams(String classUri) {
         List<Map<String, String>> examParamsList = new ArrayList<>();
-        for (String examUri : CXUtil.getExams(baseUri, classUri)) {
+        for (String examUri : CXUtil.getExams(Application.BASE_URI, classUri)) {
             //parse uri to params
             String[] examUris = examUri.split("\\?", 2);
             Map<String, String> examParams = new HashMap<>();
@@ -273,7 +273,7 @@ public class Application {
 
     private static void initManagers(
             ManagerModel[] managers,
-            String baseUri, String cardUriModel, String examUriModel,
+            String cardUriModel, String examUriModel,
             List<Map<String, String>> taskParamsList, List<Map<String, String>> examParamsList,
             boolean hasSleep, boolean skipReview, CompleteStyle completeStyle,
             Semaphore semaphore
@@ -286,7 +286,7 @@ public class Application {
                 manager.setUriModel(cardUriModel);
                 manager.setParamsList(taskParamsList);
             }
-            manager.setBaseUri(baseUri);
+            manager.setBaseUri(Application.BASE_URI);
             manager.setHasSleep(hasSleep);
             manager.setSkipReview(skipReview);
             manager.setSemaphore(semaphore);
