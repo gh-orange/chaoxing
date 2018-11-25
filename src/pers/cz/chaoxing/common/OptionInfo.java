@@ -38,4 +38,8 @@ public class OptionInfo {
         this.description = description;
     }
 
+    @Override
+    public String toString() {
+        return name + '.' + description;
+    }
 }

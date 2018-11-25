@@ -1,8 +1,8 @@
-package pers.cz.chaoxing.common.other;
+package pers.cz.chaoxing.common.school;
 
 /**
  * @author 橙子
- * @date 2018/10/26
+ * @since 2018/10/26
  */
 public class SchoolData {
     private String name;

@@ -1,11 +1,12 @@
 package pers.cz.chaoxing.thread.manager;
 
+import pers.cz.chaoxing.callback.CheckCodeSingletonFactory;
 import pers.cz.chaoxing.common.VideoInfo;
 import pers.cz.chaoxing.common.task.data.player.PlayerTaskData;
 import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.thread.task.PlayTask;
 import pers.cz.chaoxing.util.CXUtil;
-import pers.cz.chaoxing.util.IOLock;
+import pers.cz.chaoxing.util.IOUtil;
 import pers.cz.chaoxing.util.InfoType;
 import pers.cz.chaoxing.util.Try;
 
@@ -17,9 +18,9 @@ import java.util.Map;
 
 /**
  * @author p_chncheng
- * @create 2018/9/4
+ * @since 2018/9/4
  */
-public class PlayerManager extends Manager {
+public class PlayerManager extends ManagerModel {
     private int clickCount;
 
     public PlayerManager(int threadPoolSize) {
@@ -31,7 +32,7 @@ public class PlayerManager extends Manager {
     public void doJob() throws Exception {
         paramsList.forEach(Try.once(params -> {
             acquire();
-            TaskInfo<PlayerTaskData> playerInfo = Try.ever(() -> CXUtil.getTaskInfo(baseUri, uriModel, params, InfoType.Video), customCallBack);
+            TaskInfo<PlayerTaskData> playerInfo = Try.ever(() -> CXUtil.getTaskInfo(baseUri, uriModel, params, InfoType.Video), CheckCodeSingletonFactory.CUSTOM.get());
             release();
             Arrays.stream(playerInfo.getAttachments())
                     .filter(attachment -> !attachment.isPassed())
@@ -45,21 +46,21 @@ public class PlayerManager extends Manager {
                                 } catch (UnsupportedEncodingException ignored) {
                                 }
                                 String finalVideoName = videoName;
-                                IOLock.output(() -> System.out.println("Video did not pass: " + finalVideoName));
+                                IOUtil.println("Video did not pass: " + finalVideoName);
                                 char[] charArray = attachment.getType().toCharArray();
                                 if (charArray[0] >= 'A' && charArray[0] <= 'Z')
                                     charArray[0] -= 32;
                                 attachment.setType(String.valueOf(charArray));
                                 PlayTask playTask = new PlayTask(playerInfo, attachment, videoInfo, baseUri);
-                                playTask.setCheckCodeCallBack(customCallBack);
+                                playTask.setCheckCodeCallBack(CheckCodeSingletonFactory.CUSTOM.get());
                                 playTask.setHasSleep(hasSleep);
                                 playTask.setSemaphore(semaphore);
-                                playTask.setAutoComplete(autoComplete);
+                                playTask.setCompleteStyle(completeStyle);
                                 completionService.submit(playTask);
                                 threadCount++;
-                                IOLock.output(() -> System.out.println("Added playTask to ThreadPool: " + finalVideoName));
+                                IOUtil.println("Added playTask to ThreadPool: " + finalVideoName);
                             }
-                        }, customCallBack);
+                        }, CheckCodeSingletonFactory.CUSTOM.get());
                         /*
                         imitate human click
                         */
@@ -70,16 +71,16 @@ public class PlayerManager extends Manager {
         Iterator<Map<String, String>> iterator = paramsList.iterator();
         for (int i = 0; i < threadCount && iterator.hasNext(); i++) {
             acquire();
-            Try.ever(() -> CXUtil.activeTask(baseUri, iterator.next()), customCallBack);
+            Try.ever(() -> CXUtil.activeTask(baseUri, iterator.next()), CheckCodeSingletonFactory.CUSTOM.get());
             if (hasSleep)
                 Thread.sleep(10 * 1000);
             release();
         }
-        IOLock.output(() -> System.out.println("All player task has been called"));
+        IOUtil.println("All player task has been called");
     }
 
     public void close() {
         super.close();
-        IOLock.output(() -> System.out.println("Finished playTask count: " + threadCount));
+        IOUtil.println("Finished playTask count: " + threadCount);
     }
 }

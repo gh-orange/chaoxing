@@ -13,7 +13,7 @@ import java.util.function.Consumer;
  * lambda checked exception throw cheat util
  *
  * @author 橙子
- * @date 2018/9/28
+ * @since 2018/9/28
  */
 public final class Try {
 
@@ -59,6 +59,15 @@ public final class Try {
             } catch (CheckCodeException e) {
                 callBack.call(e.getSession(), e.getUri());
             }
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> T ever(ExceptionSupplier<T, CheckCodeException> supplier, CallBack<?> callBack, String... extra) {
+        try {
+            return supplier.get();
+        } catch (CheckCodeException e) {
+            return (T) callBack.call(e.getSession(), e.getUri(), extra[0], extra[1], extra[2]);
+        }
     }
 
     public static <T> T ever(ExceptionSupplier<T, WrongAccountException> supplier, CallBack<?> callBack, HomeworkQuizConfig homeworkQuizConfig, String... extra) throws WrongAccountException {

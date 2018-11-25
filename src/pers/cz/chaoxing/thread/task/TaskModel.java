@@ -8,10 +8,7 @@ import pers.cz.chaoxing.common.quiz.data.QuizData;
 import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.common.task.data.TaskData;
 import pers.cz.chaoxing.exception.WrongAccountException;
-import pers.cz.chaoxing.util.IOLock;
-import pers.cz.chaoxing.util.StringUtil;
-import pers.cz.chaoxing.util.TaskState;
-import pers.cz.chaoxing.util.Try;
+import pers.cz.chaoxing.util.*;
 
 import java.util.*;
 import java.util.concurrent.Callable;
@@ -20,9 +17,9 @@ import java.util.stream.Collectors;
 
 /**
  * @author 橙子
- * @date 2018/9/25
+ * @since 2018/9/25
  */
-public abstract class Task<T extends TaskData, V extends QuizData> implements Runnable, Callable<Boolean> {
+public abstract class TaskModel<T extends TaskData, V extends QuizData> implements Runnable, CompleteAnswer, Callable<Boolean> {
     protected final String baseUri;
     final TaskInfo<T> taskInfo;
     final T attachment;
@@ -30,16 +27,17 @@ public abstract class Task<T extends TaskData, V extends QuizData> implements Ru
     TaskState taskState;
     boolean hasFail;
     boolean hasSleep;
-    boolean autoComplete;
+    CompleteStyle completeStyle;
     private Semaphore semaphore;
     CallBack<?> checkCodeCallBack;
 
-    Task(TaskInfo<T> taskInfo, T attachment, String baseUri) {
+    TaskModel(TaskInfo<T> taskInfo, T attachment, String baseUri) {
         this.taskInfo = taskInfo;
         this.attachment = attachment;
         this.baseUri = baseUri;
-        this.hasSleep = this.autoComplete = true;
+        this.hasSleep = true;
         this.taskState = TaskState.RUNNING;
+        this.completeStyle = CompleteStyle.AUTO;
     }
 
     @Override
@@ -50,9 +48,9 @@ public abstract class Task<T extends TaskData, V extends QuizData> implements Ru
                 doTask();
             } catch (RequestsException e) {
                 String message = StringUtil.subStringAfterFirst(e.getLocalizedMessage(), ":").trim();
-                IOLock.output(() -> System.out.println("Net connection error: " + message));
+                IOUtil.println("Net connection error: " + message);
             } catch (InterruptedException | WrongAccountException e) {
-                checkCodeCallBack.print(e.getLocalizedMessage());
+                IOUtil.println(e.getLocalizedMessage());
             } catch (Exception ignored) {
             }
             release();
@@ -76,8 +74,8 @@ public abstract class Task<T extends TaskData, V extends QuizData> implements Ru
         this.hasSleep = hasSleep;
     }
 
-    public void setAutoComplete(boolean autoComplete) {
-        this.autoComplete = autoComplete;
+    public void setCompleteStyle(CompleteStyle completeStyle) {
+        this.completeStyle = completeStyle;
     }
 
     public void setSemaphore(Semaphore semaphore) {
@@ -102,7 +100,8 @@ public abstract class Task<T extends TaskData, V extends QuizData> implements Ru
 
     protected abstract boolean answerQuestion(Map<V, List<OptionInfo>> answers) throws Exception;
 
-    List<OptionInfo> autoCompleteAnswer(QuizData quizData) {
+    @Override
+    public List<OptionInfo> autoCompleteAnswer(QuizData quizData) {
         ArrayList<OptionInfo> options = new ArrayList<>();
         if (quizData.getQuestionType().equals("1")) {
             List<OptionInfo> rightOptions = Arrays.stream(quizData.getOptions()).map(OptionInfo::new).collect(Collectors.toList());
@@ -113,6 +112,25 @@ public abstract class Task<T extends TaskData, V extends QuizData> implements Ru
             optionInfo.setRight(true);
             options.add(optionInfo);
         }
+        return options;
+    }
+
+    @Override
+    public List<OptionInfo> manualCompleteAnswer(QuizData quizData) {
+        ArrayList<OptionInfo> options = new ArrayList<>();
+        IOUtil.next().chars()
+                .mapToObj(i -> Character.toString((char) i))
+                .forEach(c -> {
+                    List<OptionInfo> rightOptions = Arrays.stream(quizData.getOptions())
+                            .filter(optionInfo -> optionInfo.getName().equals(c))
+                            .map(OptionInfo::new)
+                            .collect(Collectors.toList());
+                    rightOptions.forEach(optionInfo -> optionInfo.setRight(true));
+                    if (quizData.getQuestionType().equals("1"))
+                        options.addAll(rightOptions);
+                    else if (!rightOptions.isEmpty() && options.isEmpty())
+                        options.add(rightOptions.get(0));
+                });
         return options;
     }
 
@@ -127,5 +145,9 @@ public abstract class Task<T extends TaskData, V extends QuizData> implements Ru
                 default:
                     return false;
             }
+    }
+
+    void threadPrintln(String first, String... more) {
+        IOUtil.println(Thread.currentThread().getName() + ": " + first, more);
     }
 }

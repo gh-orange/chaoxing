@@ -10,7 +10,7 @@ import org.jsoup.nodes.TextNode;
 import org.jsoup.select.Elements;
 import pers.cz.chaoxing.common.OptionInfo;
 import pers.cz.chaoxing.common.VideoInfo;
-import pers.cz.chaoxing.common.other.SchoolInfo;
+import pers.cz.chaoxing.common.school.SchoolInfo;
 import pers.cz.chaoxing.common.quiz.QuizInfo;
 import pers.cz.chaoxing.common.quiz.data.QuizData;
 import pers.cz.chaoxing.common.quiz.data.exam.ExamQuizConfig;
@@ -45,16 +45,16 @@ import java.util.stream.IntStream;
 
 public class CXUtil {
 
-    private static final Type taskInfoType = new TypeReference<TaskInfo<TaskData>>() {
+    private static final Type TASK_INFO_TYPE = new TypeReference<TaskInfo<TaskData>>() {
     }.getType();
 
-    private static final Type playerInfoType = new TypeReference<TaskInfo<PlayerTaskData>>() {
+    private static final Type PLAYER_INFO_TYPE = new TypeReference<TaskInfo<PlayerTaskData>>() {
     }.getType();
 
-    private static final Type homeworkInfoType = new TypeReference<TaskInfo<HomeworkTaskData>>() {
+    private static final Type HOMEWORK_INFO_TYPE = new TypeReference<TaskInfo<HomeworkTaskData>>() {
     }.getType();
 
-    private static final Type playerQuizInfoType = new TypeReference<List<QuizInfo<PlayerQuizData, Void>>>() {
+    private static final Type PLAYER_QUIZ_INFO_TYPE = new TypeReference<List<QuizInfo<PlayerQuizData, Void>>>() {
     }.getType();
 
     private static Session session = Requests.session();
@@ -79,6 +79,15 @@ public class CXUtil {
         } catch (JSONException ignored) {
             return new SchoolInfo(false);
         }
+    }
+
+    public static boolean login(int fid, String username, String password) throws CheckCodeException {
+        try {
+            if (CXUtil.login(fid, username, password, null))
+                return true;
+        } catch (Exception ignored) {
+        }
+        throw new CheckCodeException(session, "http://passport2.chaoxing.com/num/code");
     }
 
     public static boolean login(int fid, String username, String password, String checkCode) throws WrongAccountException {
@@ -222,14 +231,14 @@ public class CXUtil {
         try {
             switch (infoType) {
                 case Video:
-                    return JSON.parseObject(responseStr, playerInfoType);
+                    return JSON.parseObject(responseStr, PLAYER_INFO_TYPE);
                 case Homework:
-                    TaskInfo<HomeworkTaskData> taskInfo = JSON.parseObject(responseStr, homeworkInfoType);
+                    TaskInfo<HomeworkTaskData> taskInfo = JSON.parseObject(responseStr, HOMEWORK_INFO_TYPE);
                     for (HomeworkTaskData attachment : taskInfo.getAttachments())
                         attachment.setUtEnc(params.get("utenc"));
                     return (TaskInfo<T>) taskInfo;
                 default:
-                    return JSON.parseObject(responseStr, taskInfoType);
+                    return JSON.parseObject(responseStr, TASK_INFO_TYPE);
             }
         } catch (JSONException ignored) {
             TaskInfo<T> taskInfo = new TaskInfo<>();
@@ -279,7 +288,7 @@ public class CXUtil {
             JSONObject result = JSON.parseObject(responseStr);
             switch (result.getIntValue("status")) {
                 case 0:
-                    System.out.println("Exam need finishStandard: " + attachment.getProperty().getTitle() + "[" + result.getIntValue("finishStandard") + "%]");
+                    IOUtil.println("Exam need finishStandard: " + attachment.getProperty().getTitle() + "[" + result.getIntValue("finishStandard") + "%]");
                     break;
                 case 1:
                     return true;
@@ -385,7 +394,7 @@ public class CXUtil {
         RawResponse response = session.get(initDataUrl).params(params).followRedirect(false).proxy(proxy).send();
         if (response.getStatusCode() == StatusCodes.FOUND)
             throw new CheckCodeException(session, response.getHeader("location"));
-        return JSON.parseArray(response.readToText()).toJavaObject(playerQuizInfoType);
+        return JSON.parseArray(response.readToText()).toJavaObject(PLAYER_QUIZ_INFO_TYPE);
     }
 
     public static QuizInfo<HomeworkQuizData, HomeworkQuizConfig> getHomeworkQuiz(String baseUri, TaskInfo<HomeworkTaskData> taskInfo, HomeworkTaskData attachment) throws CheckCodeException {
@@ -965,10 +974,6 @@ public class CXUtil {
         defaults.setEncRemainTime(defaults.getRemainTime());
         defaults.setEnc(results[2]);
         return true;
-    }
-
-    public static void saveCheckCode(String path) {
-        session.get("http://passport2.chaoxing.com/num/code?" + System.currentTimeMillis()).proxy(proxy).send().writeToFile(path);
     }
 
     /**

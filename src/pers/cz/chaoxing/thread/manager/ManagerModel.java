@@ -1,9 +1,9 @@
 package pers.cz.chaoxing.thread.manager;
 
 import net.dongliu.requests.exception.RequestsException;
-import pers.cz.chaoxing.callback.CallBack;
 import pers.cz.chaoxing.thread.LimitedBlockingQueue;
-import pers.cz.chaoxing.util.IOLock;
+import pers.cz.chaoxing.util.CompleteStyle;
+import pers.cz.chaoxing.util.IOUtil;
 import pers.cz.chaoxing.util.StringUtil;
 import pers.cz.chaoxing.util.Try;
 
@@ -15,23 +15,22 @@ import java.util.concurrent.*;
 
 /**
  * @author 橙子
- * @date 2018/9/29
+ * @since 2018/9/29
  */
-public abstract class Manager implements Runnable, Closeable {
+public abstract class ManagerModel implements Runnable, Closeable {
     protected String baseUri;
     String uriModel;
     int threadCount;
     boolean hasSleep;
     boolean skipReview;
-    boolean autoComplete;
+    CompleteStyle completeStyle;
     private int threadPoolSize;
     private ExecutorService threadPool;
     List<Map<String, String>> paramsList;
     CompletionService<Boolean> completionService;
     Semaphore semaphore;
-    CallBack<?> customCallBack;
 
-    Manager(int threadPoolSize) {
+    ManagerModel(int threadPoolSize) {
         this.threadPoolSize = threadPoolSize;
         if (this.threadPoolSize > 0) {
             this.threadPool = new ThreadPoolExecutor(threadPoolSize, threadPoolSize, 0L, TimeUnit.MILLISECONDS, new LimitedBlockingQueue<>(1));
@@ -47,7 +46,7 @@ public abstract class Manager implements Runnable, Closeable {
                 doJob();
             } catch (RequestsException e) {
                 String message = StringUtil.subStringAfterFirst(e.getLocalizedMessage(), ":").trim();
-                IOLock.output(() -> System.out.println("Net connection error: " + message));
+                IOUtil.println("Net connection error: " + message);
                 release();
             } catch (Exception ignored) {
                 release();
@@ -80,8 +79,8 @@ public abstract class Manager implements Runnable, Closeable {
         this.skipReview = skipReview;
     }
 
-    public void setAutoComplete(boolean autoComplete) {
-        this.autoComplete = autoComplete;
+    public void setCompleteStyle(CompleteStyle completeStyle) {
+        this.completeStyle = completeStyle;
     }
 
     public void setParamsList(List<Map<String, String>> paramsList) {
@@ -90,10 +89,6 @@ public abstract class Manager implements Runnable, Closeable {
 
     public void setSemaphore(Semaphore semaphore) {
         this.semaphore = semaphore;
-    }
-
-    public void setCustomCallBack(CallBack<?> customCallBack) {
-        this.customCallBack = customCallBack;
     }
 
     @Override

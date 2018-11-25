@@ -7,13 +7,14 @@ import pers.cz.chaoxing.common.OptionInfo;
 import pers.cz.chaoxing.common.task.data.exam.ExamTaskData;
 import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.util.CXUtil;
+import pers.cz.chaoxing.util.StringUtil;
 import pers.cz.chaoxing.util.Try;
 
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-public class ExamTask extends Task<ExamTaskData, ExamQuizData> {
+public class ExamTask extends TaskModel<ExamTaskData, ExamQuizData> {
     private QuizInfo<ExamQuizData, ExamQuizConfig> examQuizInfo;
 
     public ExamTask(TaskInfo<ExamTaskData> taskInfo, ExamTaskData attachment, String baseUri) {
@@ -23,7 +24,7 @@ public class ExamTask extends Task<ExamTaskData, ExamQuizData> {
 
     @Override
     public void doTask() throws Exception {
-        checkCodeCallBack.print(this.taskName + "[exam start]");
+        threadPrintln(this.taskName + "[exam start]");
         examQuizInfo = loadQuizInfo(attachment);
         Try.ever(() -> CXUtil.getExamQuiz(baseUri, examQuizInfo), checkCodeCallBack);
         Map<ExamQuizData, List<OptionInfo>> answers = new HashMap<>();
@@ -40,19 +41,20 @@ public class ExamTask extends Task<ExamTaskData, ExamQuizData> {
             if (storeQuestion(answers))
                 answers.entrySet().stream()
                         .filter(entry -> !entry.getValue().isEmpty())
-                        .forEach(entry -> checkCodeCallBack.print(
+                        .forEach(entry -> threadPrintln(
                                 this.taskName + "[exam store success]",
                                 entry.getKey().getDescription(),
-                                entry.getValue().stream().map(optionInfo -> optionInfo.getName() + "." + optionInfo.getDescription()).toArray(String[]::new)));
+                                StringUtil.join(entry.getValue())
+                        ));
         }));
         if (!hasFail)
             examQuizInfo.setPassed(answerQuestion(answers));
         if (hasSleep)
             Thread.sleep(3 * 1000);
         if (examQuizInfo.isPassed())
-            checkCodeCallBack.print(this.taskName + "[exam answer finish]");
+            threadPrintln(this.taskName + "[exam answer finish]");
         else
-            checkCodeCallBack.print(this.taskName + "[exam store finish]");
+            threadPrintln(this.taskName + "[exam store finish]");
     }
 
     private QuizInfo<ExamQuizData, ExamQuizConfig> loadQuizInfo(ExamTaskData attachment) {
@@ -73,13 +75,19 @@ public class ExamTask extends Task<ExamTaskData, ExamQuizData> {
         ExamQuizData quizData = quizInfo.getDatas()[((ExamQuizConfig) quizInfo.getDefaults()).getStart()];
         CXUtil.getQuizAnswer(quizData).forEach(optionInfo -> questions.computeIfAbsent(quizData, key -> new ArrayList<>()).add(optionInfo));
         if (!questions.containsKey(quizData)) {
-            checkCodeCallBack.print(this.taskName + "[exam answer match failure]",
-                    quizData.getDescription(),
-                    Arrays.stream(quizData.getOptions()).map(optionInfo -> optionInfo.getName() + "." + optionInfo.getDescription()).toArray(String[]::new));
-            if (autoComplete)
-                questions.put(quizData, autoCompleteAnswer(quizData));
-            else
-                hasFail = true;
+            threadPrintln(this.taskName + "[exam answer match failure]", quizData.toString());
+            switch (completeStyle) {
+                case AUTO:
+                    questions.put(quizData, autoCompleteAnswer(quizData));
+                    break;
+                case MANUAL:
+                    questions.put(quizData, manualCompleteAnswer(quizData));
+                    break;
+                case NONE:
+                default:
+                    hasFail = true;
+                    break;
+            }
         }
         if (questions.containsKey(quizData))
             quizData.setAnswered(false);

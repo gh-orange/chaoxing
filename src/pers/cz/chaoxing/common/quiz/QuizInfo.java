@@ -4,7 +4,7 @@ import pers.cz.chaoxing.common.quiz.data.QuizData;
 
 /**
  * @author 橙子
- * @date 2018/9/23
+ * @since 2018/9/23
  */
 public class QuizInfo<T extends QuizData, V> {
     private T[] datas;

@@ -6,16 +6,14 @@ import pers.cz.chaoxing.common.quiz.data.player.PlayerQuizData;
 import pers.cz.chaoxing.common.task.data.player.PlayerTaskData;
 import pers.cz.chaoxing.common.VideoInfo;
 import pers.cz.chaoxing.common.task.TaskInfo;
-import pers.cz.chaoxing.util.CXUtil;
-import pers.cz.chaoxing.util.TaskState;
-import pers.cz.chaoxing.util.Try;
+import pers.cz.chaoxing.util.*;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class PlayTask extends Task<PlayerTaskData, PlayerQuizData> {
+public class PlayTask extends TaskModel<PlayerTaskData, PlayerQuizData> {
     private final VideoInfo videoInfo;
     private int playSecond;
 
@@ -33,7 +31,7 @@ public class PlayTask extends Task<PlayerTaskData, PlayerQuizData> {
 
     @Override
     public void doTask() throws Exception {
-        checkCodeCallBack.print(this.taskName + "[player start]");
+        threadPrintln(this.taskName + "[player start]");
         List<QuizInfo<PlayerQuizData, Void>> playerQuizInfoArray = Try.ever(() -> CXUtil.getPlayerQuizzes(taskInfo.getDefaults().getInitdataUrl(), attachment.getMid()), checkCodeCallBack);
         boolean isPassed = Try.ever(() -> CXUtil.onStart(taskInfo, attachment, videoInfo), checkCodeCallBack);
         if (!isPassed) {
@@ -44,7 +42,7 @@ public class PlayTask extends Task<PlayerTaskData, PlayerQuizData> {
                 if (taskState.equals(TaskState.STOP))
                     break;
                 if (!taskState.equals(TaskState.PAUSE)) {
-                    checkCodeCallBack.print(this.taskName + "[video play " + (int) ((float) this.playSecond / this.videoInfo.getDuration() * 100) + "%]");
+                    threadPrintln(this.taskName + "[video play " + (int) ((float) this.playSecond / this.videoInfo.getDuration() * 100) + "%]");
                     playSecond += taskInfo.getDefaults().getReportTimeInterval();
                 }
                 playerQuizInfoArray.forEach(Try.once(this::doAnswer));
@@ -60,12 +58,12 @@ public class PlayTask extends Task<PlayerTaskData, PlayerQuizData> {
                 else
                     CXUtil.onEnd(taskInfo, attachment, videoInfo);
             }, checkCodeCallBack);
-            checkCodeCallBack.print(this.taskName + "[video play finish]");
+            threadPrintln(this.taskName + "[video play finish]");
         } else if (!playerQuizInfoArray.isEmpty()) {
             playSecond = videoInfo.getDuration();
             playerQuizInfoArray.forEach(Try.once(this::doAnswer));
         }
-        checkCodeCallBack.print(this.taskName + "[quiz answer finish]");
+        threadPrintln(this.taskName + "[quiz answer finish]");
     }
 
     public void setPlaySecond(int playSecond) {
@@ -77,10 +75,11 @@ public class PlayTask extends Task<PlayerTaskData, PlayerQuizData> {
         if (this.isStopState())
             return;
         if (answerQuestion(answers))
-            answers.forEach((playerQuizData, options) -> checkCodeCallBack.print(
+            answers.forEach((key, value) -> threadPrintln(
                     this.taskName + "[quiz answer success]",
-                    playerQuizData.getDescription(),
-                    options.stream().map(optionInfo -> optionInfo.getName() + "." + optionInfo.getDescription()).toArray(String[]::new)));
+                    key.getDescription(),
+                    StringUtil.join(value)
+            ));
     }
 
     @Override
@@ -96,13 +95,19 @@ public class PlayTask extends Task<PlayerTaskData, PlayerQuizData> {
                         if (!questions.containsKey(quizData))
                             CXUtil.getQuizAnswer(quizData).forEach(questions.computeIfAbsent(quizData, key -> new ArrayList<>())::add);
                         if (!questions.containsKey(quizData)) {
-                            checkCodeCallBack.print(this.taskName + "[quiz answer match failure]",
-                                    quizData.getDescription(),
-                                    Arrays.stream(quizData.getOptions()).map(optionInfo -> optionInfo.getName() + "." + optionInfo.getDescription()).toArray(String[]::new));
-                            if (autoComplete)
-                                questions.put(quizData, autoCompleteAnswer(quizData));
-                            else
-                                hasFail = true;
+                            threadPrintln(this.taskName + "[quiz answer match failure]", quizData.toString());
+                            switch (completeStyle) {
+                                case AUTO:
+                                    questions.put(quizData, autoCompleteAnswer(quizData));
+                                    break;
+                                case MANUAL:
+                                    questions.put(quizData, manualCompleteAnswer(quizData));
+                                    break;
+                                case NONE:
+                                default:
+                                    hasFail = true;
+                                    break;
+                            }
                         }
                         if (questions.containsKey(quizData))
                             quizData.setAnswered(false);

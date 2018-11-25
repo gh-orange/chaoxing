@@ -2,7 +2,7 @@ package pers.cz.chaoxing.common.quiz.data.homework;
 
 /**
  * @author 橙子
- * @date 2018/9/23
+ * @since 2018/9/23
  */
 public class HomeworkQuizConfig {
     private String userId;

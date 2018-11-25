@@ -8,11 +8,12 @@ import pers.cz.chaoxing.common.task.data.homework.HomeworkTaskData;
 import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.exception.WrongAccountException;
 import pers.cz.chaoxing.util.CXUtil;
+import pers.cz.chaoxing.util.StringUtil;
 import pers.cz.chaoxing.util.Try;
 
 import java.util.*;
 
-public class HomeworkTask extends Task<HomeworkTaskData, HomeworkQuizData> {
+public class HomeworkTask extends TaskModel<HomeworkTaskData, HomeworkQuizData> {
     private final QuizInfo<HomeworkQuizData, HomeworkQuizConfig> homeworkQuizInfo;
 
     public HomeworkTask(TaskInfo<HomeworkTaskData> taskInfo, HomeworkTaskData attachment, QuizInfo<HomeworkQuizData, HomeworkQuizConfig> homeworkQuizInfo, String baseUri) {
@@ -23,7 +24,7 @@ public class HomeworkTask extends Task<HomeworkTaskData, HomeworkQuizData> {
 
     @Override
     public void doTask() throws Exception {
-        checkCodeCallBack.print(this.taskName + "[homework start]");
+        threadPrintln(this.taskName + "[homework start]");
         Map<HomeworkQuizData, List<OptionInfo>> answers = getAnswers(this.homeworkQuizInfo);
         if (this.isStopState())
             return;
@@ -31,26 +32,27 @@ public class HomeworkTask extends Task<HomeworkTaskData, HomeworkQuizData> {
             if (storeQuestion(answers))
                 answers.entrySet().stream()
                         .filter(entry -> !entry.getValue().isEmpty())
-                        .forEach(entry -> checkCodeCallBack.print(
+                        .forEach(entry -> threadPrintln(
                                 this.taskName + "[homework store success]",
                                 entry.getKey().getDescription(),
-                                entry.getValue().stream().map(optionInfo -> optionInfo.getName() + "." + optionInfo.getDescription()).toArray(String[]::new)
+                                StringUtil.join(entry.getValue())
                         ));
         } else {
             this.homeworkQuizInfo.setPassed(answerQuestion(answers));
             if (this.homeworkQuizInfo.isPassed())
-                answers.forEach((key, value) -> checkCodeCallBack.print(
+                answers.forEach((key, value) -> threadPrintln(
                         this.taskName + "[homework answer success]",
                         key.getDescription(),
-                        value.stream().map(optionInfo -> optionInfo.getName() + "." + optionInfo.getDescription()).toArray(String[]::new)
+                        StringUtil.join(value)
                 ));
+
         }
         if (hasSleep)
             Thread.sleep(3 * 60 * 1000);
         if (this.homeworkQuizInfo.isPassed())
-            checkCodeCallBack.print(this.taskName + "[homework answer finish]");
+            threadPrintln(this.taskName + "[homework answer finish]");
         else
-            checkCodeCallBack.print(this.taskName + "[homework store finish]");
+            threadPrintln(this.taskName + "[homework store finish]");
     }
 
     @Override
@@ -59,14 +61,19 @@ public class HomeworkTask extends Task<HomeworkTaskData, HomeworkQuizData> {
         Arrays.stream(quizInfo.getDatas()).forEach(quizData -> {
             CXUtil.getQuizAnswer(quizData).forEach(optionInfo -> questions.computeIfAbsent(quizData, key -> new ArrayList<>()).add(optionInfo));
             if (!questions.containsKey(quizData)) {
-                checkCodeCallBack.print(this.taskName + "[homework answer match failure]",
-                        quizData.getDescription(),
-                        Arrays.stream(quizData.getOptions()).map(optionInfo -> optionInfo.getName() + "." + optionInfo.getDescription()).toArray(String[]::new)
-                );
-                if (autoComplete)
-                    questions.put(quizData, autoCompleteAnswer(quizData));
-                else
-                    hasFail = true;
+                threadPrintln(this.taskName + "[homework answer match failure]", quizData.toString());
+                switch (completeStyle) {
+                    case AUTO:
+                        questions.put(quizData, autoCompleteAnswer(quizData));
+                        break;
+                    case MANUAL:
+                        questions.put(quizData, manualCompleteAnswer(quizData));
+                        break;
+                    case NONE:
+                    default:
+                        hasFail = true;
+                        break;
+                }
             }
             if (questions.containsKey(quizData))
                 quizData.setAnswered(false);

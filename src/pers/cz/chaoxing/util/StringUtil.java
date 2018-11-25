@@ -1,8 +1,15 @@
 package pers.cz.chaoxing.util;
 
+import com.sun.deploy.util.StringUtils;
+import pers.cz.chaoxing.common.OptionInfo;
+
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+
 /**
  * @author 橙子
- * @date 2018/10/25
+ * @since 2018/10/25
  */
 public class StringUtil {
     public static String subStringAfterFirst(String origin, String begin) {
@@ -55,5 +62,13 @@ public class StringUtil {
         if (subStr.equals(origin))
             return "";
         return subStr;
+    }
+
+    public static String join(Object[] array) {
+        return StringUtil.join(Arrays.asList(array));
+    }
+
+    public static String join(Collection<?> collection) {
+        return StringUtils.join(collection, "\n");
     }
 }

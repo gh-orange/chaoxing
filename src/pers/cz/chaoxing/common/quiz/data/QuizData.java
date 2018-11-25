@@ -1,10 +1,11 @@
 package pers.cz.chaoxing.common.quiz.data;
 
 import pers.cz.chaoxing.common.OptionInfo;
+import pers.cz.chaoxing.util.StringUtil;
 
 /**
  * @author 橙子
- * @date 2018/9/23
+ * @since 2018/9/23
  */
 public abstract class QuizData {
     private boolean answered;
@@ -51,5 +52,10 @@ public abstract class QuizData {
 
     public void setOptions(OptionInfo[] options) {
         this.options = options;
+    }
+
+    @Override
+    public String toString() {
+        return description + '\n' + StringUtil.join(options);
     }
 }
