@@ -37,8 +37,7 @@ public class PlayTask extends TaskModel<PlayerTaskData, PlayerQuizData> {
         if (!isPassed) {
             do {
                 if (hasSleep)
-                    for (int i = 0; !taskState.equals(TaskState.STOP) && i < taskInfo.getDefaults().getReportTimeInterval(); i++)
-                        Thread.sleep(1000);
+                    Thread.sleep(taskInfo.getDefaults().getReportTimeInterval() * 1000);
                 if (taskState.equals(TaskState.STOP))
                     break;
                 if (!taskState.equals(TaskState.PAUSE)) {
@@ -96,18 +95,7 @@ public class PlayTask extends TaskModel<PlayerTaskData, PlayerQuizData> {
                             CXUtil.getQuizAnswer(quizData).forEach(questions.computeIfAbsent(quizData, key -> new ArrayList<>())::add);
                         if (!questions.containsKey(quizData)) {
                             threadPrintln(this.taskName + "[quiz answer match failure]", quizData.toString());
-                            switch (completeStyle) {
-                                case AUTO:
-                                    questions.put(quizData, autoCompleteAnswer(quizData));
-                                    break;
-                                case MANUAL:
-                                    questions.put(quizData, manualCompleteAnswer(quizData));
-                                    break;
-                                case NONE:
-                                default:
-                                    hasFail = true;
-                                    break;
-                            }
+                            hasFail = !completeAnswer(questions, quizData);
                         }
                         if (questions.containsKey(quizData))
                             quizData.setAnswered(false);

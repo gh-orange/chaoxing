@@ -76,18 +76,7 @@ public class ExamTask extends TaskModel<ExamTaskData, ExamQuizData> {
         CXUtil.getQuizAnswer(quizData).forEach(optionInfo -> questions.computeIfAbsent(quizData, key -> new ArrayList<>()).add(optionInfo));
         if (!questions.containsKey(quizData)) {
             threadPrintln(this.taskName + "[exam answer match failure]", quizData.toString());
-            switch (completeStyle) {
-                case AUTO:
-                    questions.put(quizData, autoCompleteAnswer(quizData));
-                    break;
-                case MANUAL:
-                    questions.put(quizData, manualCompleteAnswer(quizData));
-                    break;
-                case NONE:
-                default:
-                    hasFail = true;
-                    break;
-            }
+            hasFail = !completeAnswer(questions, quizData);
         }
         if (questions.containsKey(quizData))
             quizData.setAnswered(false);

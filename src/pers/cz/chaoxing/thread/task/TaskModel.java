@@ -19,15 +19,15 @@ import java.util.stream.Collectors;
  * @author 橙子
  * @since 2018/9/25
  */
-public abstract class TaskModel<T extends TaskData, V extends QuizData> implements Runnable, CompleteAnswer, Callable<Boolean> {
+public abstract class TaskModel<T extends TaskData, K extends QuizData> implements Runnable, CompleteAnswer, Callable<Boolean> {
     protected final String baseUri;
     final TaskInfo<T> taskInfo;
     final T attachment;
     String taskName;
-    TaskState taskState;
+    volatile TaskState taskState;
     boolean hasFail;
     boolean hasSleep;
-    CompleteStyle completeStyle;
+    private CompleteStyle completeStyle;
     private Semaphore semaphore;
     CallBack<?> checkCodeCallBack;
 
@@ -94,11 +94,26 @@ public abstract class TaskModel<T extends TaskData, V extends QuizData> implemen
         Optional.ofNullable(semaphore).ifPresent(Semaphore::release);
     }
 
-    protected abstract Map<? extends QuizData, List<OptionInfo>> getAnswers(QuizInfo<V, ?> quizInfo);
+    protected abstract Map<K, List<OptionInfo>> getAnswers(QuizInfo<K, ?> quizInfo);
 
-    protected abstract boolean storeQuestion(Map<V, List<OptionInfo>> answers) throws Exception;
+    protected abstract boolean storeQuestion(Map<K, List<OptionInfo>> answers) throws Exception;
 
-    protected abstract boolean answerQuestion(Map<V, List<OptionInfo>> answers) throws Exception;
+    protected abstract boolean answerQuestion(Map<K, List<OptionInfo>> answers) throws Exception;
+
+    <S extends QuizData> boolean completeAnswer(Map<S, List<OptionInfo>> questions, S quizData) {
+        switch (completeStyle) {
+            case AUTO:
+                questions.put(quizData, autoCompleteAnswer(quizData));
+                break;
+            case MANUAL:
+                questions.put(quizData, manualCompleteAnswer(quizData));
+                break;
+            case NONE:
+            default:
+                return false;
+        }
+        return true;
+    }
 
     @Override
     public List<OptionInfo> autoCompleteAnswer(QuizData quizData) {
