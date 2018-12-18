@@ -42,12 +42,12 @@ import java.util.stream.IntStream;
 
 /**
  * @author 橙子
- * @version 1.4.0
+ * @version 1.4.1
  */
 public class Application {
 
     private static void copyright() {
-        IOUtil.println("ChaoxingPlugin v1.4.0 - powered by orange");
+        IOUtil.println("ChaoxingPlugin v1.4.1 - powered by orange");
         IOUtil.println("License - GPLv3: This is a free & share software");
         IOUtil.println("You can checking source code from: https://github.com/cz111000/chaoxing");
     }
@@ -245,10 +245,12 @@ public class Application {
         Application.copyright();
         try (IOUtil.ScanJob scanJob = new IOUtil.ScanJob()) {
             CompletableFuture.runAsync(scanJob);
-            Application.config(Application.login(), scanJob);
-        } catch (RequestsException e) {
-            String message = StringUtil.subStringAfterFirst(e.getLocalizedMessage(), "Exception:").trim();
-            IOUtil.println("Net connection error: " + message);
+            try {
+                Application.config(Application.login(), scanJob);
+            } catch (RequestsException e) {
+                String message = StringUtil.subStringAfterFirst(e.getLocalizedMessage(), "Exception:").trim();
+                IOUtil.println("Net connection error: " + message);
+            }
         } catch (Exception ignored) {
         }
     }
