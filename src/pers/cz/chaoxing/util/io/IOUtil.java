@@ -1,4 +1,4 @@
-package pers.cz.chaoxing.util;
+package pers.cz.chaoxing.util.io;
 
 import java.io.BufferedReader;
 import java.io.Closeable;
@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.*;
 import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -16,27 +17,43 @@ import java.util.regex.Pattern;
  */
 public final class IOUtil {
     private static Queue<Optional<String>> inputData;
-    private static ReentrantReadWriteLock lock;
+    private static ReadWriteLock lock;
     private static Condition condition;
 
     public static String next() {
+        return IOUtil.printAndNext("");
+    }
+
+    public static String nextLine() {
+        return IOUtil.printAndNextLine("");
+    }
+
+    public static int nextInt() {
+        return IOUtil.printAndNextInt("");
+    }
+
+    public static String printAndNext(String promptString) {
+        IOUtil.lock.writeLock().lock();
         try {
-            IOUtil.lock.writeLock().lock();
+            if (!promptString.isEmpty())
+                IOUtil.print(promptString);
             while (IOUtil.inputData.isEmpty())
                 IOUtil.condition.await();
             String result = IOUtil.inputData.poll().orElse("");
             IOUtil.inputData.poll();
             return result;
-        } catch (InterruptedException ignored) {
+        } catch (InterruptedException e) {
             return "";
         } finally {
             IOUtil.lock.writeLock().unlock();
         }
     }
 
-    public static String nextLine() {
+    public static String printAndNextLine(String promptString) {
+        IOUtil.lock.writeLock().lock();
         try {
-            IOUtil.lock.writeLock().lock();
+            if (!promptString.isEmpty())
+                IOUtil.print(promptString);
             while (IOUtil.inputData.isEmpty())
                 IOUtil.condition.await();
             StringBuilder stringBuilder = new StringBuilder();
@@ -44,16 +61,18 @@ public final class IOUtil {
                 IOUtil.inputData.poll().ifPresent(stringBuilder::append);
             IOUtil.inputData.poll();
             return stringBuilder.toString();
-        } catch (InterruptedException ignored) {
+        } catch (InterruptedException e) {
             return "";
         } finally {
             IOUtil.lock.writeLock().unlock();
         }
     }
 
-    public static int nextInt() {
+    public static int printAndNextInt(String promptString) {
+        IOUtil.lock.writeLock().lock();
         try {
-            IOUtil.lock.writeLock().lock();
+            if (!promptString.isEmpty())
+                IOUtil.print(promptString);
             String result;
             do {
                 while (IOUtil.inputData.isEmpty())
@@ -62,7 +81,7 @@ public final class IOUtil {
                 IOUtil.inputData.poll();
             } while (!result.matches("\\d+"));
             return Integer.valueOf(result);
-        } catch (InterruptedException ignored) {
+        } catch (InterruptedException e) {
             return 0;
         } finally {
             IOUtil.lock.writeLock().unlock();
@@ -71,15 +90,21 @@ public final class IOUtil {
 
     public static void print(String str) {
         IOUtil.lock.readLock().lock();
-        System.out.print(str);
-        IOUtil.lock.readLock().unlock();
+        try {
+            System.out.print(str);
+        } finally {
+            IOUtil.lock.readLock().unlock();
+        }
     }
 
     public static void println(String first, String... more) {
         IOUtil.lock.readLock().lock();
-        System.out.println(first);
-        Arrays.stream(more).forEach(System.out::println);
-        IOUtil.lock.readLock().unlock();
+        try {
+            System.out.println(first);
+            Arrays.stream(more).forEach(System.out::println);
+        } finally {
+            IOUtil.lock.readLock().unlock();
+        }
     }
 
     static {
@@ -90,10 +115,15 @@ public final class IOUtil {
 
     public static final class ScanJob implements Runnable, Closeable {
         private BufferedReader reader;
+        private InputFilter inputFilter;
         private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\p{javaWhitespace}+");
 
         public ScanJob() {
             this.reader = new BufferedReader(new InputStreamReader(System.in));
+        }
+
+        public void setInputFilter(InputFilter inputFilter) {
+            this.inputFilter = inputFilter;
         }
 
         @Override
@@ -102,8 +132,11 @@ public final class IOUtil {
                 String line;
                 do {
                     line = readLine();
+                    if (Optional.ofNullable(inputFilter).isPresent())
+                        if (inputFilter.doFilter(line))
+                            continue;
+                    IOUtil.lock.writeLock().lock();
                     try {
-                        IOUtil.lock.writeLock().lock();
                         Matcher matcher = WHITESPACE_PATTERN.matcher(line);
                         for (String s : line.split(WHITESPACE_PATTERN.pattern())) {
                             IOUtil.inputData.offer(Optional.of(s));
@@ -115,7 +148,7 @@ public final class IOUtil {
                     } finally {
                         IOUtil.lock.writeLock().unlock();
                     }
-                } while (!line.equals("exit"));
+                } while (!"s".equalsIgnoreCase(line));
             } catch (InterruptedException ignored) {
             }
         }

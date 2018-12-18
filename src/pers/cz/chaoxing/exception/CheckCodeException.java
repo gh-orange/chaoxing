@@ -1,21 +1,13 @@
 package pers.cz.chaoxing.exception;
 
-import net.dongliu.requests.Session;
-
 public class CheckCodeException extends Exception {
-    private Session session;
-    private String uri;
+    private String url;
 
-    public CheckCodeException(Session session, String uri) {
-        this.session = session;
-        this.uri = uri;
+    public CheckCodeException(String url) {
+        this.url = url;
     }
 
-    public String getUri() {
-        return uri;
-    }
-
-    public Session getSession() {
-        return session;
+    public String getUrl() {
+        return url;
     }
 }

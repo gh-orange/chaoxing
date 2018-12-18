@@ -1,11 +1,10 @@
-package pers.cz.chaoxing.util;
+package pers.cz.chaoxing.util.io;
 
 import com.sun.deploy.util.StringUtils;
-import pers.cz.chaoxing.common.OptionInfo;
 
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * @author 橙子
@@ -65,10 +64,18 @@ public class StringUtil {
     }
 
     public static String join(Object[] array) {
-        return StringUtil.join(Arrays.asList(array));
+        return StringUtil.join(array, "\n");
     }
 
     public static String join(Collection<?> collection) {
-        return StringUtils.join(collection, "\n");
+        return StringUtil.join(collection, "\n");
+    }
+
+    public static String join(Object[] array, String s) {
+        return StringUtils.join(Arrays.stream(array).map(Object::toString).collect(Collectors.toList()), s);
+    }
+
+    public static String join(Collection<?> collection, String s) {
+        return StringUtils.join(collection.stream().map(Object::toString).collect(Collectors.toList()), s);
     }
 }

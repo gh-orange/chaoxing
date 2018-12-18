@@ -1,18 +1,25 @@
 package pers.cz.chaoxing;
 
+import pers.cz.chaoxing.callback.checkcode.CheckCodeFactory;
+import pers.cz.chaoxing.thread.LimitedBlockingQueue;
+import pers.cz.chaoxing.thread.PauseThreadPoolExecutor;
+import pers.cz.chaoxing.thread.manager.HomeworkManager;
+import pers.cz.chaoxing.thread.manager.PlayerManager;
 import net.dongliu.requests.exception.RequestsException;
-import pers.cz.chaoxing.callback.CallBack;
-import pers.cz.chaoxing.callback.CheckCodeSingletonFactory;
+import pers.cz.chaoxing.common.control.Control;
 import pers.cz.chaoxing.common.school.SchoolData;
 import pers.cz.chaoxing.common.school.SchoolInfo;
+import pers.cz.chaoxing.exception.WrongAccountException;
 import pers.cz.chaoxing.thread.manager.ExamManager;
-import pers.cz.chaoxing.thread.manager.HomeworkManager;
 import pers.cz.chaoxing.thread.manager.ManagerModel;
-import pers.cz.chaoxing.thread.manager.PlayerManager;
 import pers.cz.chaoxing.util.*;
+import pers.cz.chaoxing.util.io.IOUtil;
+import pers.cz.chaoxing.util.io.StateControlFilter;
+import pers.cz.chaoxing.util.io.StringUtil;
 
 import java.util.*;
-import java.util.concurrent.Semaphore;
+import java.util.concurrent.*;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
@@ -35,86 +42,76 @@ import java.util.stream.IntStream;
 
 /**
  * @author 橙子
- * @version 1.3.2
+ * @version 1.4.0
  */
 public class Application {
-    private static final String BASE_URI = "https://mooc1-1.chaoxing.com";
-    private static String classesUri = "";
-    private static String cardUriModel = "";
-    private static String examUriModel = "";
-
-    public static void main(String[] args) {
-        Application.copyright();
-        try (IOUtil.ScanJob scanJob = new IOUtil.ScanJob()) {
-            CheckCodeSingletonFactory.setProxy(CXUtil.proxy);
-            new Thread(scanJob).start();
-            Application.login();
-            IOUtil.print("Using fast mode (may got WARNING, suggest you DO NOT USE) [y/n]:");
-            boolean hasSleep = !IOUtil.next().equalsIgnoreCase("y");
-            IOUtil.print("Doing review mode homework&exam (may got WARNING, suggest you DO NOT USE) [y/n]:");
-            boolean skipReview = !IOUtil.next().equalsIgnoreCase("y");
-            IOUtil.print("Storing only matching answers in homework&exam (completing all answers if choose no) [y/n]:");
-            CompleteStyle completeStyle = !IOUtil.next().equalsIgnoreCase("y") ? CompleteStyle.NONE : CompleteStyle.MANUAL;
-            if (!CompleteStyle.NONE.equals(completeStyle)) {
-                IOUtil.print("Auto-completing all answers (may got lower mark, manual-completing if not) [y/n]:");
-                if (IOUtil.next().equalsIgnoreCase("y"))
-                    completeStyle = CompleteStyle.AUTO;
-            }
-            Semaphore semaphore = hasSleep ? new Semaphore(4) : null;
-            IOUtil.print("Input size of playerThreadPool(suggest max size is 3):");
-            int playerThreadPoolSize = IOUtil.nextInt();
-            IOUtil.print("Input size of homeworkThreadPool(suggest max size is 1):");
-            int homeworkThreadPoolSize = IOUtil.nextInt();
-            IOUtil.print("Input size of examThreadPool(suggest max size is 1):");
-            int examThreadPoolSize = IOUtil.nextInt();
-//            IOUtil.println("Press 'p' to pause, press 's' to stop, press any key to continue");
-            try (
-                    PlayerManager playerManager = new PlayerManager(playerThreadPoolSize);
-                    HomeworkManager homeworkManager = new HomeworkManager(homeworkThreadPoolSize);
-                    ExamManager examManager = new ExamManager(examThreadPoolSize)
-            ) {
-                while (classesUri.isEmpty())
-                    classesUri = Try.ever(CXUtil::getClassesUri, CheckCodeSingletonFactory.CUSTOM.get());
-                List<Map<String, String>> taskParamsList = new ArrayList<>();
-                List<Map<String, String>> examParamsList = new ArrayList<>();
-                String finalClassesUri = classesUri;
-                Try.ever(() -> CXUtil.getClasses(finalClassesUri), CheckCodeSingletonFactory.CUSTOM.get()).forEach(classUri -> {
-                    taskParamsList.addAll(Application.getTaskParams(classUri, CheckCodeSingletonFactory.CUSTOM.get()));
-                    examParamsList.addAll(Application.getExamParams(classUri));
-                });
-                ManagerModel[] managers = {playerManager, homeworkManager, examManager};
-                Application.initManagers(
-                        managers,
-                        cardUriModel, examUriModel,
-                        taskParamsList, examParamsList,
-                        hasSleep, skipReview, completeStyle,
-                        semaphore
-                );
-                Application.startManagers(managers);
-            }
-        } catch (RequestsException e) {
-            String message = StringUtil.subStringAfterFirst(e.getLocalizedMessage(), "Exception:").trim();
-            IOUtil.println("Net connection error: " + message);
-        } catch (Exception ignored) {
-        }
-    }
 
     private static void copyright() {
-        IOUtil.println("ChaoxingPlugin v1.3.2 - powered by orange");
+        IOUtil.println("ChaoxingPlugin v1.4.0 - powered by orange");
         IOUtil.println("License - GPLv3: This is a free & share software");
         IOUtil.println("You can checking source code from: https://github.com/cz111000/chaoxing");
     }
 
-    private static void login() {
+    private static String login() {
         SchoolData schoolData = Application.getSchoolData();
         Application.notice(schoolData.getId());
-        IOUtil.print("Input account:");
-        String username = IOUtil.nextLine();
-        IOUtil.print("Input password:");
-        String password = IOUtil.nextLine();
-        Try.ever(() -> CXUtil.login(schoolData.getId(), username, password),
-                CheckCodeSingletonFactory.LOGIN.get(),
-                String.valueOf(schoolData.getId()), username, password);
+        while (true)
+            try {
+                String username = IOUtil.printAndNextLine("Input account:");
+                String password = IOUtil.printAndNextLine("Input password:");
+                return Try.ever(() -> CXUtil.login(schoolData.getId(), username, password, ""),
+                        CheckCodeFactory.LOGIN.get(),
+                        String.valueOf(schoolData.getId()), username, password);
+            } catch (WrongAccountException e) {
+                IOUtil.println(e.getLocalizedMessage());
+            }
+    }
+
+    private static void config(final String indexURL, IOUtil.ScanJob scanJob) {
+        Control control = new Control();
+        control.setSleep(!IOUtil.printAndNext("Using fast mode (may got WARNING, suggest you DO NOT USE) [y/n]:").equalsIgnoreCase("y"));
+        control.setReview(IOUtil.printAndNext("Doing review mode homework&exam (may got WARNING, suggest you DO NOT USE) [y/n]:").equalsIgnoreCase("y"));
+        if (IOUtil.printAndNext("Storing only matching answers in homework&exam (completing all answers if choose no) [y/n]:").equalsIgnoreCase("y"))
+            control.setCompleteStyle(CompleteStyle.NONE);
+        else if (IOUtil.printAndNext("Auto-completing all answers (may got lower mark, manual-completing if not) [y/n]:").equalsIgnoreCase("y"))
+            control.setCompleteStyle(CompleteStyle.AUTO);
+        else
+            control.setCompleteStyle(CompleteStyle.MANUAL);
+        try (
+                PlayerManager playerManager = new PlayerManager(
+                        IOUtil.printAndNextInt("Input size of playerThreadPool(suggest max size is 3):"));
+                HomeworkManager homeworkManager = new HomeworkManager(
+                        IOUtil.printAndNextInt("Input size of homeworkThreadPool(suggest max size is 1):"));
+                ExamManager examManager = new ExamManager(
+                        IOUtil.printAndNextInt("Input size of examThreadPool(suggest max size is 1):"))
+        ) {
+            final String coursesURL = Try.ever(() -> CXUtil.getCoursesURL(indexURL), CheckCodeFactory.CUSTOM.get());
+            List<String> courseURLs = Try.ever(() -> CXUtil.getCourseURLs(coursesURL), CheckCodeFactory.CUSTOM.get());
+            Map<String, List<List<String>>> urlMap = courseURLs.stream()
+                    .map(Try.ever(CXUtil::getCourseInfo, CheckCodeFactory.CUSTOM.get()))
+                    .map(Map::entrySet)
+                    .flatMap(Collection::stream)
+                    .collect(Collectors.toMap(
+                            Map.Entry::getKey,
+                            entry -> {
+                                List<List<String>> list = new ArrayList<>();
+                                list.add(entry.getValue());
+                                return list;
+                            },
+                            (oldList, newList) -> {
+                                oldList.addAll(newList);
+                                return oldList;
+                            }
+                    ));
+            urlMap.put("courseURLs", Collections.singletonList(courseURLs));
+            List<ManagerModel> managers = Arrays.asList(playerManager, homeworkManager, examManager);
+            final PauseThreadPoolExecutor threadPool = new PauseThreadPoolExecutor(managers.size(), managers.size(), 0L, TimeUnit.MILLISECONDS, new LimitedBlockingQueue<>(1));
+            scanJob.setInputFilter(new StateControlFilter(threadPool));
+            IOUtil.println("Press 'p' to pause, press 's' to stop, press any key to continue");
+            Application.initManagers(managers, urlMap, control);
+            Application.startManagers(managers, threadPool).join();
+            threadPool.shutdown();
+        }
     }
 
     private static void notice(int fid) {
@@ -201,96 +198,58 @@ public class Application {
     }
 
     private static SchoolData getSchoolData() {
-        SchoolData schoolData = new SchoolData();
-        schoolData.setId(1322);
-        while (true) {
-            IOUtil.print("Input school name or fid (default is 1322):");
-            schoolData.setName(IOUtil.nextLine().trim());
-            if (schoolData.getName().matches(".*\\D.*")) {
-                SchoolInfo schoolInfo = CXUtil.searchSchool(schoolData.getName());
+        SchoolData schoolData = new SchoolData(1322, "");
+        while (schoolData.getName().isEmpty()) {
+            schoolData.setName(IOUtil.printAndNextLine("Input school name or fid (default is 1322):").trim());
+            if (schoolData.getName().isEmpty())
+                break;
+            else if (schoolData.getName().matches("-?[\\d\\s]+"))
+                schoolData.setId(Integer.parseInt(schoolData.getName()));
+            else {
+                final SchoolData finalSchoolData = schoolData;
+                SchoolInfo schoolInfo = Try.ever(() -> CXUtil.searchSchool(finalSchoolData.getName()), CheckCodeFactory.CUSTOM.get());
                 if (schoolInfo.isResult()) {
                     IntStream.range(0, schoolInfo.getFromNums()).forEach(i -> IOUtil.println((i + 1) + ":" + schoolInfo.getFroms()[i].getName()));
-                    IOUtil.print("Choose school index:");
-                    int index = IOUtil.nextInt();
-                    if (index > 0 && index <= schoolInfo.getFromNums())
-                        schoolData.setId(schoolInfo.getFroms()[index - 1].getId());
-                    else continue;
-                } else continue;
-            } else if (!schoolData.getName().isEmpty())
-                schoolData.setId(Integer.parseInt(schoolData.getName()));
-            break;
+                    int index = IOUtil.printAndNextInt("Choose school index:");
+                    if (index > 0 && index <= schoolInfo.getFromNums()) {
+                        schoolData = schoolInfo.getFroms()[index - 1];
+                        break;
+                    }
+                }
+                schoolData.setName("");
+            }
         }
         return schoolData;
     }
 
-    private static List<Map<String, String>> getTaskParams(String classUri, CallBack checkCodeCallBack) {
-        List<Map<String, String>> taskParamsList = new ArrayList<>();
-        for (String taskUri : CXUtil.getTasks(Application.BASE_URI, classUri)) {
-            //parse uri to params
-            String[] taskUris = taskUri.split("\\?", 2);
-            Map<String, String> taskParams = new HashMap<>();
-            Arrays.stream(taskUris[1].split("&"))
-                    .map(param -> param.split("="))
-                    .forEach(strings -> taskParams.put(strings[0], strings[1]));
-            taskParamsList.add(taskParams);
-            if (cardUriModel.isEmpty())
-                cardUriModel = Try.ever(() -> CXUtil.getCardUriModel(Application.BASE_URI, taskUris[0], taskParams), checkCodeCallBack);
-        }
-        return taskParamsList;
-    }
-
-    private static List<Map<String, String>> getExamParams(String classUri) {
-        List<Map<String, String>> examParamsList = new ArrayList<>();
-        for (String examUri : CXUtil.getExams(Application.BASE_URI, classUri)) {
-            //parse uri to params
-            String[] examUris = examUri.split("\\?", 2);
-            Map<String, String> examParams = new HashMap<>();
-            Arrays.stream(examUris[1].split("&"))
-                    .map(param -> param.split("="))
-                    .forEach(strings -> examParams.put(strings[0], strings[1]));
-            examParamsList.add(examParams);
-            if (examUriModel.isEmpty())
-                examUriModel = examUris[0];
-        }
-        return examParamsList;
-    }
-
-    private static void startManagers(ManagerModel[] managers) throws InterruptedException {
-        List<Thread> commonThreads = new ArrayList<>();
-        Thread examThread = null;
-        for (ManagerModel manager : managers)
+    private static void initManagers(List<ManagerModel> managers, Map<String, List<List<String>>> urlMap, Control control) {
+        managers.forEach(manager -> {
+            manager.setControl(control);
             if (manager instanceof ExamManager)
-                examThread = new Thread(manager);
+                manager.setUrls(urlMap.get("courseURLs"));
             else
-                commonThreads.add(new Thread(manager));
-        commonThreads.forEach(Thread::start);
-        commonThreads.forEach(Try.once(Thread::join));
-        if (examThread != null) {
-            examThread.start();
-            examThread.join();
-        }
+                manager.setUrls(urlMap.get("chapterURLs"));
+        });
     }
 
-    private static void initManagers(
-            ManagerModel[] managers,
-            String cardUriModel, String examUriModel,
-            List<Map<String, String>> taskParamsList, List<Map<String, String>> examParamsList,
-            boolean hasSleep, boolean skipReview, CompleteStyle completeStyle,
-            Semaphore semaphore
-    ) {
-        for (ManagerModel manager : managers) {
-            if (manager instanceof ExamManager) {
-                manager.setUriModel(examUriModel);
-                manager.setParamsList(examParamsList);
-            } else {
-                manager.setUriModel(cardUriModel);
-                manager.setParamsList(taskParamsList);
-            }
-            manager.setBaseUri(Application.BASE_URI);
-            manager.setHasSleep(hasSleep);
-            manager.setSkipReview(skipReview);
-            manager.setSemaphore(semaphore);
-            manager.setCompleteStyle(completeStyle);
+    private static CompletableFuture<Void> startManagers(List<ManagerModel> managers, final ThreadPoolExecutor threadPool) {
+        final ManagerModel lastManager = managers.get(managers.size() - 1);
+        CompletableFuture[] futures = managers.stream()
+                .filter(manager -> !manager.equals(lastManager))
+                .map(runnable -> CompletableFuture.runAsync(runnable, threadPool))
+                .toArray(CompletableFuture[]::new);
+        return CompletableFuture.allOf(futures).thenRunAsync(lastManager, threadPool);
+    }
+
+    public static void main(String[] args) {
+        Application.copyright();
+        try (IOUtil.ScanJob scanJob = new IOUtil.ScanJob()) {
+            CompletableFuture.runAsync(scanJob);
+            Application.config(Application.login(), scanJob);
+        } catch (RequestsException e) {
+            String message = StringUtil.subStringAfterFirst(e.getLocalizedMessage(), "Exception:").trim();
+            IOUtil.println("Net connection error: " + message);
+        } catch (Exception ignored) {
         }
     }
 }

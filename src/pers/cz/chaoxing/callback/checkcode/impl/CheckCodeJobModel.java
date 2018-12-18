@@ -1,10 +1,7 @@
-package pers.cz.chaoxing.callback.impl;
-
-import net.dongliu.requests.Session;
+package pers.cz.chaoxing.callback.checkcode.impl;
 
 import java.awt.*;
 import java.io.File;
-import java.net.Proxy;
 import java.util.concurrent.locks.ReadWriteLock;
 
 /**
@@ -14,13 +11,11 @@ import java.util.concurrent.locks.ReadWriteLock;
  * @since 2018/11/21
  */
 public abstract class CheckCodeJobModel {
-    protected String baseUri;
-    String receiveUri;
-    String sendUri;
+    String baseURL;
+    String receiveURL;
+    String sendURL;
     String checkCodePath;
-    Session session;
     ReadWriteLock lock;
-    Proxy proxy;
 
     CheckCodeJobModel(String checkCodePath) {
         this.checkCodePath = checkCodePath;
@@ -30,18 +25,10 @@ public abstract class CheckCodeJobModel {
         this.lock = lock;
     }
 
-    public void setProxy(Proxy proxy) {
-        this.proxy = proxy;
-    }
-
-    String getBaseUri(String uri) {
-        return uri.substring(0, uri.indexOf('/', uri.indexOf("://") + "://".length()));
-    }
-
     boolean readCheckCode(String path) {
         try {
             Desktop.getDesktop().open(new File(path));
-        } catch (Exception ignored) {
+        } catch (Exception e) {
             return false;
         }
         return true;

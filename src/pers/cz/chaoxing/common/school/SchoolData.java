@@ -12,6 +12,14 @@ public class SchoolData {
     private int dxfid;
     private boolean allowJoin;
 
+    public SchoolData() {
+    }
+
+    public SchoolData(int id, String name) {
+        this.id = id;
+        this.name = name;
+    }
+
     public String getName() {
         return name;
     }

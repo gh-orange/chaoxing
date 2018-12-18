@@ -1,18 +1,18 @@
-package pers.cz.chaoxing.callback;
+package pers.cz.chaoxing.callback.checkcode;
 
-public class CallBackData {
+public class CheckCodeData {
     private boolean status;
     private String code;
     private String enc;
 
-    public CallBackData() {
+    public CheckCodeData() {
     }
 
-    public CallBackData(boolean status) {
+    public CheckCodeData(boolean status) {
         this.status = status;
     }
 
-    public CallBackData(boolean status, String code) {
+    public CheckCodeData(boolean status, String code) {
         this.status = status;
         this.code = code;
     }

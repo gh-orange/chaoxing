@@ -1,6 +1,6 @@
-package pers.cz.chaoxing.callback;
+package pers.cz.chaoxing.callback.checkcode;
 
-import pers.cz.chaoxing.callback.impl.*;
+import pers.cz.chaoxing.callback.checkcode.impl.*;
 
 import java.net.Proxy;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -12,7 +12,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * @author 橙子
  * @since 2018/11/21
  */
-public enum CheckCodeSingletonFactory {
+public enum CheckCodeFactory {
     LOGIN {
         @Override
         protected void createInstance() {
@@ -40,28 +40,23 @@ public enum CheckCodeSingletonFactory {
 
     protected CheckCodeJobModel callBack;
 
-    CheckCodeSingletonFactory() {
+    CheckCodeFactory() {
         createInstance();
     }
 
     @SuppressWarnings("unchecked")
-    public <T extends CallBack> T get() {
+    public <T extends CheckCodeCallBack> T get() {
         return (T) this.callBack;
     }
 
     protected abstract void createInstance();
 
-    public static void setProxy(Proxy proxy) {
-        for (CheckCodeSingletonFactory factory : CheckCodeSingletonFactory.values())
-            factory.callBack.setProxy(proxy);
-    }
-
     public static void setLock(ReadWriteLock lock) {
-        for (CheckCodeSingletonFactory factory : CheckCodeSingletonFactory.values())
+        for (CheckCodeFactory factory : CheckCodeFactory.values())
             factory.callBack.setLock(lock);
     }
 
     static {
-        CheckCodeSingletonFactory.setLock(new ReentrantReadWriteLock());
+        CheckCodeFactory.setLock(new ReentrantReadWriteLock());
     }
 }

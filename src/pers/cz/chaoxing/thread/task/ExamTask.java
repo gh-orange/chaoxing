@@ -1,14 +1,14 @@
 package pers.cz.chaoxing.thread.task;
 
+import pers.cz.chaoxing.common.OptionInfo;
 import pers.cz.chaoxing.common.quiz.QuizInfo;
 import pers.cz.chaoxing.common.quiz.data.exam.ExamQuizConfig;
 import pers.cz.chaoxing.common.quiz.data.exam.ExamQuizData;
-import pers.cz.chaoxing.common.OptionInfo;
-import pers.cz.chaoxing.common.task.data.exam.ExamTaskData;
 import pers.cz.chaoxing.common.task.TaskInfo;
+import pers.cz.chaoxing.common.task.data.exam.ExamTaskData;
 import pers.cz.chaoxing.util.CXUtil;
-import pers.cz.chaoxing.util.StringUtil;
 import pers.cz.chaoxing.util.Try;
+import pers.cz.chaoxing.util.io.StringUtil;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -17,8 +17,8 @@ import java.util.stream.IntStream;
 public class ExamTask extends TaskModel<ExamTaskData, ExamQuizData> {
     private QuizInfo<ExamQuizData, ExamQuizConfig> examQuizInfo;
 
-    public ExamTask(TaskInfo<ExamTaskData> taskInfo, ExamTaskData attachment, String baseUri) {
-        super(taskInfo, attachment, baseUri);
+    public ExamTask(TaskInfo<ExamTaskData> taskInfo, ExamTaskData attachment, String url) {
+        super(taskInfo, attachment, url);
         this.taskName = this.attachment.getProperty().getTitle();
     }
 
@@ -26,16 +26,15 @@ public class ExamTask extends TaskModel<ExamTaskData, ExamQuizData> {
     public void doTask() throws Exception {
         threadPrintln(this.taskName + "[exam start]");
         examQuizInfo = loadQuizInfo(attachment);
-        Try.ever(() -> CXUtil.getExamQuiz(baseUri, examQuizInfo), checkCodeCallBack);
+        Try.ever(() -> CXUtil.getExamQuiz(url, examQuizInfo), checkCodeCallBack);
         Map<ExamQuizData, List<OptionInfo>> answers = new HashMap<>();
         ExamQuizData examQuizData = examQuizInfo.getDatas()[examQuizInfo.getDefaults().getStart()];
         answers.put(examQuizData, Arrays.stream(examQuizData.getOptions()).filter(OptionInfo::isRight).collect(Collectors.toList()));
         storeQuestion(answers);
         IntStream.range(0, examQuizInfo.getDatas().length).boxed().forEach(Try.once(i -> {
             examQuizInfo.getDefaults().setStart(i);
-            Try.ever(() -> CXUtil.getExamQuiz(baseUri, examQuizInfo), checkCodeCallBack);
-            if (this.isStopState())
-                return;
+            Try.ever(() -> CXUtil.getExamQuiz(url, examQuizInfo), checkCodeCallBack);
+            control.checkState(this);
             answers.clear();
             answers.putAll(getAnswers(examQuizInfo));
             if (storeQuestion(answers))
@@ -49,7 +48,7 @@ public class ExamTask extends TaskModel<ExamTaskData, ExamQuizData> {
         }));
         if (!hasFail)
             examQuizInfo.setPassed(answerQuestion(answers));
-        if (hasSleep)
+        if (control.isSleep())
             Thread.sleep(3 * 1000);
         if (examQuizInfo.isPassed())
             threadPrintln(this.taskName + "[exam answer finish]");

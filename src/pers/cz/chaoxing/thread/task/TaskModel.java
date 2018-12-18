@@ -1,97 +1,80 @@
 package pers.cz.chaoxing.thread.task;
 
 import net.dongliu.requests.exception.RequestsException;
-import pers.cz.chaoxing.callback.CallBack;
+import pers.cz.chaoxing.callback.checkcode.CheckCodeCallBack;
+import pers.cz.chaoxing.callback.checkcode.CheckCodeFactory;
 import pers.cz.chaoxing.common.OptionInfo;
+import pers.cz.chaoxing.common.control.Control;
 import pers.cz.chaoxing.common.quiz.QuizInfo;
 import pers.cz.chaoxing.common.quiz.data.QuizData;
 import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.common.task.data.TaskData;
 import pers.cz.chaoxing.exception.WrongAccountException;
-import pers.cz.chaoxing.util.*;
+import pers.cz.chaoxing.callback.PauseCallBack;
+import pers.cz.chaoxing.util.CXUtil;
+import pers.cz.chaoxing.util.Try;
+import pers.cz.chaoxing.util.io.IOUtil;
+import pers.cz.chaoxing.util.io.StringUtil;
 
 import java.util.*;
 import java.util.concurrent.Callable;
-import java.util.concurrent.Semaphore;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
  * @author 橙子
  * @since 2018/9/25
  */
-public abstract class TaskModel<T extends TaskData, K extends QuizData> implements Runnable, CompleteAnswer, Callable<Boolean> {
-    protected final String baseUri;
+public abstract class TaskModel<T extends TaskData, K extends QuizData> implements Runnable, CompleteAnswer, PauseCallBack, Callable<Boolean> {
+    final String url;
     final TaskInfo<T> taskInfo;
     final T attachment;
     String taskName;
-    volatile TaskState taskState;
     boolean hasFail;
-    boolean hasSleep;
-    private CompleteStyle completeStyle;
-    private Semaphore semaphore;
-    CallBack<?> checkCodeCallBack;
+    Control control;
+    CheckCodeCallBack<?> checkCodeCallBack;
+    private Thread refreshTask;
 
-    TaskModel(TaskInfo<T> taskInfo, T attachment, String baseUri) {
+    TaskModel(TaskInfo<T> taskInfo, T attachment, String url) {
+        this.url = url;
         this.taskInfo = taskInfo;
         this.attachment = attachment;
-        this.baseUri = baseUri;
-        this.hasSleep = true;
-        this.taskState = TaskState.RUNNING;
-        this.completeStyle = CompleteStyle.AUTO;
     }
 
     @Override
     public final void run() {
-        try {
-            acquire();
-            try {
-                doTask();
-            } catch (RequestsException e) {
-                String message = StringUtil.subStringAfterFirst(e.getLocalizedMessage(), ":").trim();
-                IOUtil.println("Net connection error: " + message);
-            } catch (InterruptedException | WrongAccountException e) {
-                IOUtil.println(e.getLocalizedMessage());
-            } catch (Exception ignored) {
-            }
-            release();
-        } catch (InterruptedException ignored) {
-        }
+        call();
     }
 
     @Override
     public final Boolean call() {
-        run();
-        return true;
+        try {
+            control.acquire();
+            try {
+                doTask();
+                return true;
+            } finally {
+                control.release();
+            }
+        } catch (RequestsException e) {
+            String message = StringUtil.subStringAfterFirst(e.getLocalizedMessage(), ":").trim();
+            IOUtil.println("Net connection error: " + message);
+        } catch (WrongAccountException e) {
+            Optional.ofNullable(e.getLocalizedMessage()).ifPresent(IOUtil::println);
+        } catch (Exception ignored) {
+        }
+        Optional.ofNullable(refreshTask).ifPresent(Thread::interrupt);
+        return false;
     }
 
     protected abstract void doTask() throws Exception;
 
-    public void setTaskState(TaskState taskState) {
-        this.taskState = taskState;
+    public void setControl(Control control) {
+        this.control = control;
     }
 
-    public void setHasSleep(boolean hasSleep) {
-        this.hasSleep = hasSleep;
-    }
-
-    public void setCompleteStyle(CompleteStyle completeStyle) {
-        this.completeStyle = completeStyle;
-    }
-
-    public void setSemaphore(Semaphore semaphore) {
-        this.semaphore = semaphore;
-    }
-
-    public void setCheckCodeCallBack(CallBack<?> checkCodeCallBack) {
+    public void setCheckCodeCallBack(CheckCodeCallBack<?> checkCodeCallBack) {
         this.checkCodeCallBack = checkCodeCallBack;
-    }
-
-    private void acquire() throws InterruptedException {
-        Optional.ofNullable(semaphore).ifPresent(Try.once(Semaphore::acquire));
-    }
-
-    private void release() {
-        Optional.ofNullable(semaphore).ifPresent(Semaphore::release);
     }
 
     protected abstract Map<K, List<OptionInfo>> getAnswers(QuizInfo<K, ?> quizInfo);
@@ -101,7 +84,7 @@ public abstract class TaskModel<T extends TaskData, K extends QuizData> implemen
     protected abstract boolean answerQuestion(Map<K, List<OptionInfo>> answers) throws Exception;
 
     <S extends QuizData> boolean completeAnswer(Map<S, List<OptionInfo>> questions, S quizData) {
-        switch (completeStyle) {
+        switch (control.getCompleteStyle()) {
             case AUTO:
                 questions.put(quizData, autoCompleteAnswer(quizData));
                 break;
@@ -133,33 +116,31 @@ public abstract class TaskModel<T extends TaskData, K extends QuizData> implemen
     @Override
     public List<OptionInfo> manualCompleteAnswer(QuizData quizData) {
         ArrayList<OptionInfo> options = new ArrayList<>();
-        IOUtil.next().chars()
-                .mapToObj(i -> Character.toString((char) i))
-                .forEach(c -> {
-                    List<OptionInfo> rightOptions = Arrays.stream(quizData.getOptions())
-                            .filter(optionInfo -> optionInfo.getName().equals(c))
-                            .map(OptionInfo::new)
-                            .collect(Collectors.toList());
-                    rightOptions.forEach(optionInfo -> optionInfo.setRight(true));
-                    if (quizData.getQuestionType().equals("1"))
-                        options.addAll(rightOptions);
-                    else if (!rightOptions.isEmpty() && options.isEmpty())
-                        options.add(rightOptions.get(0));
-                });
+        do {
+            List<String> answers = IOUtil.printAndNextLine("Input answers (such as C or ABC):").replaceAll("\\s", "").chars()
+                    .mapToObj(i -> Character.toString((char) i))
+                    .collect(Collectors.toList());
+            for (OptionInfo option : quizData.getOptions()) {
+                if (answers.stream().anyMatch(answer -> answer.equalsIgnoreCase(option.getName()))) {
+                    options.add(new OptionInfo(option));
+                    if (!quizData.getQuestionType().equals("1"))
+                        break;
+                }
+            }
+        } while (options.isEmpty());
         return options;
     }
 
-    boolean isStopState() throws InterruptedException {
-        while (true)
-            switch (taskState) {
-                case PAUSE:
-                    Thread.sleep(60 * 1000);
-                    break;
-                case STOP:
-                    return true;
-                default:
-                    return false;
+    void startRefreshTask() {
+        refreshTask = new Thread(() -> {
+            try {
+                while (true) {
+                    Thread.sleep(6000);
+                    Try.ever(() -> CXUtil.refreshMenu(url, taskInfo.getDefaults().getClazzId(), taskInfo.getDefaults().getCourseid(), taskInfo.getDefaults().getChapterId()), CheckCodeFactory.CUSTOM.get());
+                }
+            } catch (InterruptedException ignored) {
             }
+        });
     }
 
     void threadPrintln(String first, String... more) {

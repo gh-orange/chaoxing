@@ -10,6 +10,13 @@ public class PlayerTaskData extends TaskData<PlayerDataProperty> {
     private String objectId;
     private int videoJSId;
 
+    public PlayerTaskData() {
+    }
+
+    public PlayerTaskData(boolean isPassed) {
+        this.isPassed = isPassed;
+    }
+
     public long getHeadOffset() {
         return headOffset;
     }

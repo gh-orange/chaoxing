@@ -1,20 +1,21 @@
 package pers.cz.chaoxing.thread.manager;
 
-import pers.cz.chaoxing.callback.CheckCodeSingletonFactory;
+import net.dongliu.requests.Parameter;
+import pers.cz.chaoxing.callback.checkcode.CheckCodeFactory;
 import pers.cz.chaoxing.common.VideoInfo;
 import pers.cz.chaoxing.common.task.data.player.PlayerTaskData;
 import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.thread.task.PlayTask;
 import pers.cz.chaoxing.util.CXUtil;
-import pers.cz.chaoxing.util.IOUtil;
+import pers.cz.chaoxing.util.io.IOUtil;
 import pers.cz.chaoxing.util.InfoType;
 import pers.cz.chaoxing.util.Try;
+import pers.cz.chaoxing.util.net.NetUtil;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.Arrays;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.Collection;
 
 /**
  * @author p_chncheng
@@ -30,57 +31,55 @@ public class PlayerManager extends ManagerModel {
 
     @Override
     public void doJob() throws Exception {
-        paramsList.forEach(Try.once(params -> {
-            acquire();
-            TaskInfo<PlayerTaskData> playerInfo = Try.ever(() -> CXUtil.getTaskInfo(baseUri, uriModel, params, InfoType.Video), CheckCodeSingletonFactory.CUSTOM.get());
-            release();
+        urls.stream().flatMap(Collection::stream).forEach(Try.once(url -> {
+            control.checkState(this);
+            TaskInfo<PlayerTaskData> playerInfo;
+            control.acquire();
+            try {
+                playerInfo = Try.ever(() -> CXUtil.getTaskInfo(url, InfoType.PLAYER), CheckCodeFactory.CUSTOM.get());
+            } finally {
+                control.release();
+            }
             Arrays.stream(playerInfo.getAttachments())
                     .filter(attachment -> !attachment.isPassed())
                     .forEach(Try.once(attachment -> {
                         Try.ever(() -> {
-                            if (CXUtil.startRecord(baseUri, params)) {
-                                VideoInfo videoInfo = CXUtil.getVideoInfo(baseUri, "/ananas/status", attachment.getObjectId(), playerInfo.getDefaults().getFid());
-                                String videoName = videoInfo.getFilename();
+                            if (CXUtil.startPlayer(url, NetUtil.getQueries(url).stream()
+                                    .filter(stringParameter -> stringParameter.getKey().equals("chapterId"))
+                                    .map(Parameter::getValue)
+                                    .findFirst().orElse(""))) {
+                                VideoInfo videoInfo = CXUtil.getVideoInfo(url, attachment.getObjectId(), playerInfo.getDefaults().getFid());
+                                String videoName;
                                 try {
-                                    videoName = URLDecoder.decode(videoName, "utf-8");
-                                } catch (UnsupportedEncodingException ignored) {
+                                    videoName = URLDecoder.decode(videoInfo.getFilename(), "utf-8");
+                                } catch (UnsupportedEncodingException e) {
+                                    videoName = videoInfo.getFilename();
                                 }
-                                String finalVideoName = videoName;
-                                IOUtil.println("Video did not pass: " + finalVideoName);
+                                IOUtil.println("Video did not pass: " + videoName);
                                 char[] charArray = attachment.getType().toCharArray();
                                 if (charArray[0] >= 'A' && charArray[0] <= 'Z')
                                     charArray[0] -= 32;
                                 attachment.setType(String.valueOf(charArray));
-                                PlayTask playTask = new PlayTask(playerInfo, attachment, videoInfo, baseUri);
-                                playTask.setCheckCodeCallBack(CheckCodeSingletonFactory.CUSTOM.get());
-                                playTask.setHasSleep(hasSleep);
-                                playTask.setSemaphore(semaphore);
-                                playTask.setCompleteStyle(completeStyle);
+                                PlayTask playTask = new PlayTask(playerInfo, attachment, videoInfo, url);
+                                playTask.setControl(control);
+                                playTask.setCheckCodeCallBack(CheckCodeFactory.CUSTOM.get());
                                 completionService.submit(playTask);
                                 threadCount++;
-                                IOUtil.println("Added playTask to ThreadPool: " + finalVideoName);
+                                IOUtil.println("Added playTask to ThreadPool: " + videoName);
                             }
-                        }, CheckCodeSingletonFactory.CUSTOM.get());
+                        }, CheckCodeFactory.CUSTOM.get());
                         /*
                         imitate human click
                         */
-                        if (hasSleep && ++clickCount % 15 == 0)
+                        if (control.isSleep() && ++clickCount % 15 == 0)
                             Thread.sleep(30 * 1000);
                     }));
         }));
-        Iterator<Map<String, String>> iterator = paramsList.iterator();
-        for (int i = 0; i < threadCount && iterator.hasNext(); i++) {
-            acquire();
-            Try.ever(() -> CXUtil.activeTask(baseUri, iterator.next()), CheckCodeSingletonFactory.CUSTOM.get());
-            if (hasSleep)
-                Thread.sleep(10 * 1000);
-            release();
-        }
         IOUtil.println("All player task has been called");
     }
 
     public void close() {
         super.close();
-        IOUtil.println("Finished playTask count: " + threadCount);
+        IOUtil.println("Finished playTask count: " + successCount + "/" + threadCount);
     }
 }

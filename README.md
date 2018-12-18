@@ -42,4 +42,4 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 - [x] ~~auto answer exam~~
 - [x] ~~store right answers~~
 - [x] ~~using lambda rewrite~~
-- [ ] add key control
+- [x] ~~add key control~~

@@ -1,7 +1,7 @@
 package pers.cz.chaoxing.common.quiz.data;
 
+import pers.cz.chaoxing.util.io.StringUtil;
 import pers.cz.chaoxing.common.OptionInfo;
-import pers.cz.chaoxing.util.StringUtil;
 
 /**
  * @author 橙子

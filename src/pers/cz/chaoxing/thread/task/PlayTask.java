@@ -1,11 +1,13 @@
 package pers.cz.chaoxing.thread.task;
 
 import pers.cz.chaoxing.common.OptionInfo;
+import pers.cz.chaoxing.common.VideoInfo;
 import pers.cz.chaoxing.common.quiz.QuizInfo;
 import pers.cz.chaoxing.common.quiz.data.player.PlayerQuizData;
-import pers.cz.chaoxing.common.task.data.player.PlayerTaskData;
-import pers.cz.chaoxing.common.VideoInfo;
 import pers.cz.chaoxing.common.task.TaskInfo;
+import pers.cz.chaoxing.common.task.data.player.PlayerTaskData;
+import pers.cz.chaoxing.thread.PauseThread;
+import pers.cz.chaoxing.util.io.StringUtil;
 import pers.cz.chaoxing.util.*;
 
 import java.io.UnsupportedEncodingException;
@@ -17,13 +19,13 @@ public class PlayTask extends TaskModel<PlayerTaskData, PlayerQuizData> {
     private final VideoInfo videoInfo;
     private int playSecond;
 
-    public PlayTask(TaskInfo<PlayerTaskData> taskInfo, PlayerTaskData attachment, VideoInfo videoInfo, String baseUri) {
-        super(taskInfo, attachment, baseUri);
+    public PlayTask(TaskInfo<PlayerTaskData> taskInfo, PlayerTaskData attachment, VideoInfo videoInfo, String url) {
+        super(taskInfo, attachment, url);
         this.videoInfo = videoInfo;
         this.playSecond = (int) (this.attachment.getHeadOffset() / 1000);
         try {
             this.taskName = URLDecoder.decode(videoInfo.getFilename(), "utf-8");
-        } catch (UnsupportedEncodingException ignored) {
+        } catch (UnsupportedEncodingException e) {
             this.taskName = videoInfo.getFilename();
         }
         this.attachment.setVideoJSId((int) (Math.random() * 9999999));
@@ -32,32 +34,30 @@ public class PlayTask extends TaskModel<PlayerTaskData, PlayerQuizData> {
     @Override
     public void doTask() throws Exception {
         threadPrintln(this.taskName + "[player start]");
+        startRefreshTask();
         List<QuizInfo<PlayerQuizData, Void>> playerQuizInfoArray = Try.ever(() -> CXUtil.getPlayerQuizzes(taskInfo.getDefaults().getInitdataUrl(), attachment.getMid()), checkCodeCallBack);
         boolean isPassed = Try.ever(() -> CXUtil.onStart(taskInfo, attachment, videoInfo), checkCodeCallBack);
         if (!isPassed) {
-            do {
-                if (hasSleep)
-                    Thread.sleep(taskInfo.getDefaults().getReportTimeInterval() * 1000);
-                if (taskState.equals(TaskState.STOP))
-                    break;
-                if (!taskState.equals(TaskState.PAUSE)) {
-                    threadPrintln(this.taskName + "[video play " + (int) ((float) this.playSecond / this.videoInfo.getDuration() * 100) + "%]");
-                    playSecond += taskInfo.getDefaults().getReportTimeInterval();
-                }
-                playerQuizInfoArray.forEach(Try.once(this::doAnswer));
-                if (playSecond > videoInfo.getDuration()) {
-                    playSecond = videoInfo.getDuration();
-                    break;
-                }
-                isPassed = Try.ever(() -> CXUtil.onPlayProgress(taskInfo, attachment, videoInfo, playSecond), checkCodeCallBack);
-            } while (taskState.equals(TaskState.PAUSE) || !isPassed);
-            Try.ever(() -> {
-                if (taskState.equals(TaskState.STOP))
-                    CXUtil.onPause(taskInfo, attachment, videoInfo, playSecond);
-                else
-                    CXUtil.onEnd(taskInfo, attachment, videoInfo);
-            }, checkCodeCallBack);
-            threadPrintln(this.taskName + "[video play finish]");
+            try {
+                do {
+                    if (control.isSleep())
+                        Thread.sleep(taskInfo.getDefaults().getReportTimeInterval() * 1000);
+                    if (!PauseThread.currentThread().isPaused()) {
+                        threadPrintln(this.taskName + "[video play " + (int) ((float) this.playSecond / this.videoInfo.getDuration() * 100) + "%]");
+                        playSecond += taskInfo.getDefaults().getReportTimeInterval();
+                    }
+                    playerQuizInfoArray.forEach(Try.once(this::doAnswer));
+                    if (playSecond > videoInfo.getDuration()) {
+                        playSecond = videoInfo.getDuration();
+                        break;
+                    }
+                    isPassed = Try.ever(() -> CXUtil.onPlayProgress(taskInfo, attachment, videoInfo, playSecond), checkCodeCallBack);
+                } while (PauseThread.currentThread().isPaused() || !isPassed);
+                Try.ever(() -> CXUtil.onEnd(taskInfo, attachment, videoInfo), checkCodeCallBack);
+                threadPrintln(this.taskName + "[video play finish]");
+            } catch (InterruptedException e) {
+                Try.ever(() -> CXUtil.onPause(taskInfo, attachment, videoInfo, playSecond), checkCodeCallBack);
+            }
         } else if (!playerQuizInfoArray.isEmpty()) {
             playSecond = videoInfo.getDuration();
             playerQuizInfoArray.forEach(Try.once(this::doAnswer));
@@ -71,8 +71,7 @@ public class PlayTask extends TaskModel<PlayerTaskData, PlayerQuizData> {
 
     private void doAnswer(QuizInfo<PlayerQuizData, Void> playerQuizInfo) throws InterruptedException {
         Map<PlayerQuizData, List<OptionInfo>> answers = getAnswers(playerQuizInfo);
-        if (this.isStopState())
-            return;
+        control.checkState(this);
         if (answerQuestion(answers))
             answers.forEach((key, value) -> threadPrintln(
                     this.taskName + "[quiz answer success]",
@@ -113,7 +112,7 @@ public class PlayTask extends TaskModel<PlayerTaskData, PlayerQuizData> {
         answers.forEach((quizData, options) -> {
             String answerStr = options.stream().map(OptionInfo::getName).collect(Collectors.joining());
             if (!answerStr.isEmpty())
-                Try.ever(() -> quizData.setAnswered(CXUtil.answerPlayerQuiz(baseUri, quizData.getValidationUrl(), quizData.getResourceId(), answerStr)), checkCodeCallBack);
+                Try.ever(() -> quizData.setAnswered(CXUtil.answerPlayerQuiz(quizData.getValidationUrl(), quizData.getResourceId(), answerStr)), checkCodeCallBack);
         });
         Iterator<PlayerQuizData> iterator = answers.keySet().iterator();
         if (iterator.hasNext())
