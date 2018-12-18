@@ -127,12 +127,6 @@ public final class IOUtil {
         public void run() {
             String line;
             do {
-                try {
-                    while (System.in.available() == 0)
-                        Thread.sleep(10);
-                } catch (Exception e) {
-                    break;
-                }
                 line = scanner.nextLine();
                 if (Optional.ofNullable(inputFilter).isPresent())
                     if (inputFilter.doFilter(line))
@@ -155,6 +149,7 @@ public final class IOUtil {
 
         @Override
         public void close() {
+            System.exit(0);
             scanner.close();
         }
     }
