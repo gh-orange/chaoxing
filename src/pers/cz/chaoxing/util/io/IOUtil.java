@@ -1,9 +1,6 @@
 package pers.cz.chaoxing.util.io;
 
-import java.io.BufferedReader;
 import java.io.Closeable;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.*;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -79,7 +76,7 @@ public final class IOUtil {
                     IOUtil.condition.await();
                 result = IOUtil.inputData.poll().orElse("");
                 IOUtil.inputData.poll();
-            } while (!result.matches("\\d+"));
+            } while (!result.matches("-?\\d+"));
             return Integer.valueOf(result);
         } catch (InterruptedException e) {
             return 0;
@@ -114,12 +111,12 @@ public final class IOUtil {
     }
 
     public static final class ScanJob implements Runnable, Closeable {
-        private BufferedReader reader;
+        private Scanner scanner;
         private InputFilter inputFilter;
         private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\p{javaWhitespace}+");
 
         public ScanJob() {
-            this.reader = new BufferedReader(new InputStreamReader(System.in));
+            scanner = new Scanner(System.in);
         }
 
         public void setInputFilter(InputFilter inputFilter) {
@@ -128,44 +125,37 @@ public final class IOUtil {
 
         @Override
         public void run() {
-            try {
-                String line;
-                do {
-                    line = readLine();
-                    if (Optional.ofNullable(inputFilter).isPresent())
-                        if (inputFilter.doFilter(line))
-                            continue;
-                    IOUtil.lock.writeLock().lock();
-                    try {
-                        Matcher matcher = WHITESPACE_PATTERN.matcher(line);
-                        for (String s : line.split(WHITESPACE_PATTERN.pattern())) {
-                            IOUtil.inputData.offer(Optional.of(s));
-                            if (matcher.find())
-                                IOUtil.inputData.offer(Optional.of(matcher.group()));
-                        }
-                        IOUtil.inputData.offer(Optional.empty());
-                        IOUtil.condition.signal();
-                    } finally {
-                        IOUtil.lock.writeLock().unlock();
+            String line;
+            do {
+                try {
+                    while (System.in.available() == 0)
+                        Thread.sleep(10);
+                } catch (Exception e) {
+                    break;
+                }
+                line = scanner.nextLine();
+                if (Optional.ofNullable(inputFilter).isPresent())
+                    if (inputFilter.doFilter(line))
+                        continue;
+                IOUtil.lock.writeLock().lock();
+                try {
+                    Matcher matcher = WHITESPACE_PATTERN.matcher(line);
+                    for (String s : line.split(WHITESPACE_PATTERN.pattern())) {
+                        IOUtil.inputData.offer(Optional.of(s));
+                        if (matcher.find())
+                            IOUtil.inputData.offer(Optional.of(matcher.group()));
                     }
-                } while (!"s".equalsIgnoreCase(line));
-            } catch (InterruptedException ignored) {
-            }
+                    IOUtil.inputData.offer(Optional.empty());
+                    IOUtil.condition.signal();
+                } finally {
+                    IOUtil.lock.writeLock().unlock();
+                }
+            } while (!"s".equalsIgnoreCase(line));
         }
 
         @Override
-        public void close() throws IOException {
-            this.reader.close();
-        }
-
-        private String readLine() throws InterruptedException {
-            try {
-                while (!reader.ready())
-                    Thread.sleep(100);
-                return reader.readLine();
-            } catch (IOException e) {
-                throw new InterruptedException();
-            }
+        public void close() {
+            scanner.close();
         }
     }
 }
