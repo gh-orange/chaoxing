@@ -250,8 +250,8 @@ public class Application {
             } catch (RequestsException e) {
                 String message = StringUtil.subStringAfterFirst(e.getLocalizedMessage(), "Exception:").trim();
                 IOUtil.println("Net connection error: " + message);
+            } catch (Exception ignored) {
             }
-        } catch (Exception ignored) {
         }
     }
 }
