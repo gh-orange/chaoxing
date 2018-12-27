@@ -44,10 +44,7 @@ public class PlayerManager extends ManagerModel {
                     .filter(attachment -> !attachment.isPassed())
                     .forEach(Try.once(attachment -> {
                         Try.ever(() -> {
-                            if (CXUtil.startPlayer(url, NetUtil.getQueries(url).stream()
-                                    .filter(stringParameter -> stringParameter.getKey().equals("chapterId"))
-                                    .map(Parameter::getValue)
-                                    .findFirst().orElse(""))) {
+                            if (CXUtil.startPlayer(url)) {
                                 VideoInfo videoInfo = CXUtil.getVideoInfo(url, attachment.getObjectId(), playerInfo.getDefaults().getFid());
                                 String videoName;
                                 try {
