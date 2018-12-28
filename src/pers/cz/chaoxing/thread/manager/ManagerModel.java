@@ -37,7 +37,7 @@ public abstract class ManagerModel implements PauseCallBack, Runnable, Closeable
 
     @Override
     public final void run() {
-        if (this.threadPoolSize > 0)
+        if (this.threadPoolSize > 0) {
             try {
                 doJob();
             } catch (RequestsException e) {
@@ -48,6 +48,14 @@ public abstract class ManagerModel implements PauseCallBack, Runnable, Closeable
                     threadPool.shutdownNow();
             } catch (Exception ignored) {
             }
+            LongStream.range(0, threadPool.getTaskCount()).mapToObj(i -> {
+                try {
+                    return completionService.take().get();
+                } catch (Exception e) {
+                    return false;
+                }
+            });
+        }
     }
 
     @Override
