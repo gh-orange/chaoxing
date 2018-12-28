@@ -18,7 +18,6 @@ import pers.cz.chaoxing.util.io.StringUtil;
 
 import java.util.*;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
@@ -141,6 +140,7 @@ public abstract class TaskModel<T extends TaskData, K extends QuizData> implemen
             } catch (InterruptedException ignored) {
             }
         });
+        refreshTask.start();
     }
 
     void threadPrintln(String first, String... more) {
