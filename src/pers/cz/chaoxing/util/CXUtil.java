@@ -121,7 +121,7 @@ public class CXUtil {
     }
 
     public static Map<String, List<String>> getCourseInfo(String courseURL) throws CheckCodeException {
-        Document document = NetUtil.get(courseURL).toResponse(RESPONSE_HANDLER).getBody();
+        Document document = NetUtil.get(courseURL, 0).toResponse(RESPONSE_HANDLER).getBody();
         document.select("script[method=get]").stream()
                 .filter(script -> !script.hasText())
                 .forEach(script -> {
@@ -224,7 +224,8 @@ public class CXUtil {
      * @throws CheckCodeException
      */
     public static boolean startPlayer(String chapterURL, String nodeId) throws CheckCodeException {
-        return NetUtil.get(ApiURL.PLAY_VALIDATE.buildURL(NetUtil.getOriginal(chapterURL), nodeId)).toTextResponse().getBody().contains("true");
+//        return NetUtil.get(ApiURL.PLAY_VALIDATE.buildURL(NetUtil.getOriginal(chapterURL), nodeId)).toTextResponse().getBody().contains("true");
+        return true;
     }
 
     public static boolean startExam(String examURL, TaskInfo<ExamTaskData> taskInfo, ExamTaskData attachment) throws CheckCodeException {
@@ -233,8 +234,9 @@ public class CXUtil {
                     taskInfo.getDefaults().getClazzId(),
                     taskInfo.getDefaults().getCourseid(),
                     attachment.getProperty().gettId(),
-                    attachment.getProperty().getEndTime(),
-                    attachment.getProperty().getMoocTeacherId()
+                    attachment.getProperty().getEndTime().replace("'", "").replace(" ", "+"),
+                    attachment.getProperty().getMoocTeacherId(),
+                    attachment.getProperty().getCpi()
             )).toJsonResponse(JSONObject.class).getBody();
             switch (result.getIntValue("status")) {
                 case 0:
@@ -980,6 +982,7 @@ public class CXUtil {
         String moocTeacherId = document.getElementById("moocTeacherId").val();
         String examsystem = document.getElementById("examsystem").val();
         String examEnc = document.getElementById("examEnc").val();
+        String cpi = document.getElementById("cpi").val();
         TaskInfo<ExamTaskData> examInfo = new TaskInfo<>();
         examInfo.setDefaults(new TaskConfig());
         examInfo.setAttachments(new ExamTaskData[lis.size()]);
@@ -1007,6 +1010,7 @@ public class CXUtil {
             examInfo.getAttachments()[i].getProperty().setMoocTeacherId(moocTeacherId);
             examInfo.getAttachments()[i].getProperty().setExamsystem(examsystem);
             examInfo.getAttachments()[i].getProperty().setExamEnc(examEnc);
+            examInfo.getAttachments()[i].getProperty().setCpi(cpi);
             examInfo.getAttachments()[i].getProperty().setTitle(dataElement.attr("title"));
         });
         return examInfo;
@@ -1105,6 +1109,7 @@ public class CXUtil {
                 "&dtype=" + attachment.getType() +
                 "&rt=" + (videoInfo.getRt() != 0.0f ? videoInfo.getRt() : 0.9f) +
                 "&enc=" + md5Str +
+                "&_t=" + System.currentTimeMillis() +
                 "&view=pc", 0).toJsonResponse(JSONObject.class).getBody().getBoolean("isPassed");
     }
 }

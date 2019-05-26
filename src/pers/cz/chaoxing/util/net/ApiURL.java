@@ -40,7 +40,7 @@ public enum ApiURL {
     ),
     EXAM_VALIDATE(
             "/exam/test/isExpire",
-            "classId={}&courseId={}&id={}&endTime={}&moocTeacherId={}"
+            "classId={}&courseId={}&id={}&endTime={}&moocTeacherId={}&cpi={}"
     ),
     HOMEWORK_QUIZ(
             "/api/work",

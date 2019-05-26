@@ -10,6 +10,7 @@ public class ExamDataProperty extends TaskDataProperty {
     private String moocTeacherId;
     private String examsystem;
     private String examEnc;
+    private String cpi;
 
     public String getId() {
         return id;
@@ -65,5 +66,13 @@ public class ExamDataProperty extends TaskDataProperty {
 
     public void setExamEnc(String examEnc) {
         this.examEnc = examEnc;
+    }
+
+    public String getCpi() {
+        return cpi;
+    }
+
+    public void setCpi(String cpi) {
+        this.cpi = cpi;
     }
 }
