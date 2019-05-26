@@ -33,10 +33,8 @@ import pers.cz.chaoxing.util.io.StringUtil;
 import javax.script.Invocable;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
-import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Type;
 import java.math.BigInteger;
-import java.net.URLEncoder;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
@@ -219,12 +217,12 @@ public class CXUtil {
      * onCheckCode since player loaded
      *
      * @param chapterURL
-     * @param nodeId
      * @return
      * @throws CheckCodeException
      */
-    public static boolean startPlayer(String chapterURL, String nodeId) throws CheckCodeException {
-//        return NetUtil.get(ApiURL.PLAY_VALIDATE.buildURL(NetUtil.getOriginal(chapterURL), nodeId)).toTextResponse().getBody().contains("true");
+    public static boolean startPlayer(String chapterURL) throws CheckCodeException {
+//        final Map<String, String> params = NetUtil.getQueries(chapterURL).stream().collect(Collectors.toMap(Parameter::getName, Parameter::getValue));
+//        return NetUtil.get(ApiURL.PLAY_VALIDATE.buildURL(NetUtil.getOriginal(chapterURL), params.get("courseId"), params.get("clazzid"), params.get("chapterId"))).toTextResponse().getBody().contains("true");
         return true;
     }
 
@@ -234,7 +232,7 @@ public class CXUtil {
                     taskInfo.getDefaults().getClazzId(),
                     taskInfo.getDefaults().getCourseid(),
                     attachment.getProperty().gettId(),
-                    attachment.getProperty().getEndTime().replace("'", "").replace(" ", "+"),
+                    attachment.getProperty().getEndTime(),
                     attachment.getProperty().getMoocTeacherId(),
                     attachment.getProperty().getCpi()
             )).toJsonResponse(JSONObject.class).getBody();
@@ -883,19 +881,13 @@ public class CXUtil {
         String[] descriptions = quizData.getDescription().replaceAll("【.*?】", "").split("[\\pP\\pS\\pZ]");
         StringBuilder stringBuilder = new StringBuilder();
         Arrays.stream(descriptions, 0, descriptions.length > 8 ? descriptions.length / 2 : descriptions.length).forEach(stringBuilder::append);
-        String quizDescription = stringBuilder.toString();
-        try {
-            quizDescription = URLEncoder.encode(quizDescription, "utf-8");
-        } catch (UnsupportedEncodingException e) {
-            return options;
-        }
         try {
             Document document;
             /*
             circumvent protection
              */
             while (true) {
-                document = NetUtil.get(ApiURL.ANSWER_QUIZ.buildURL(quizDescription)).charset("gbk").toResponse(RESPONSE_HANDLER).getBody();
+                document = NetUtil.get(ApiURL.ANSWER_QUIZ.buildURL(stringBuilder.toString())).charset("gbk").toResponse(RESPONSE_HANDLER).getBody();
                 Element form = document.selectFirst("form#challenge-form");
                 if (!Optional.ofNullable(form).isPresent())
                     break;
@@ -1002,10 +994,10 @@ public class CXUtil {
                 examInfo.getDefaults().setCourseid(funcParams[0].replaceAll("'", ""));
                 examInfo.getAttachments()[i].getProperty().settId(funcParams[1].isEmpty() ? "0" : funcParams[1]);
                 examInfo.getAttachments()[i].getProperty().setId(funcParams[2]);
-                examInfo.getAttachments()[i].getProperty().setEndTime(funcParams[3]);
+                examInfo.getAttachments()[i].getProperty().setEndTime(funcParams[3].replaceAll("'", ""));
             } else {
                 examInfo.getDefaults().setCourseid(params.get("courseId"));
-                examInfo.getAttachments()[i].getProperty().setEndTime(StringUtil.subStringBetweenFirst(StringUtil.subStringAfterFirst(statusStr, "时间："), "至", "考试").trim());
+                examInfo.getAttachments()[i].getProperty().setEndTime(StringUtil.subStringBetweenFirst(StringUtil.subStringAfterFirst(statusStr, "时间："), "至", "考试").trim().replaceAll("'", ""));
             }
             examInfo.getAttachments()[i].getProperty().setMoocTeacherId(moocTeacherId);
             examInfo.getAttachments()[i].getProperty().setExamsystem(examsystem);

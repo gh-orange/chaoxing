@@ -1,5 +1,7 @@
 package pers.cz.chaoxing.util.net;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.util.Optional;
 
 /**
@@ -32,7 +34,7 @@ public enum ApiURL {
     ),
     PLAY_VALIDATE(
             "/edit/validatejobcount",
-            "nodeid={}"
+            "courseId={}&clazzid={}&nodeid={}"
     ),
     HOMEWORK_VALIDATE(
             "/work/validate",
@@ -92,8 +94,13 @@ public enum ApiURL {
                 url.insert(0, paramValue);
             else if (-1 != (index = url.indexOf("{}")))
                 url.replace(index, index + 2, paramValue);
-            else if (-1 != (index = params.indexOf("{}")))
+            else if (-1 != (index = params.indexOf("{}"))) {
+                try {
+                    paramValue = URLEncoder.encode(paramValue, "utf-8");
+                } catch (UnsupportedEncodingException ignored) {
+                }
                 params.replace(index, index + 2, paramValue);
+            }
         }
         if (0 == params.length())
             return url.toString();

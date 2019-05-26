@@ -1,10 +1,8 @@
 package pers.cz.chaoxing.util.io;
 
-import com.sun.deploy.util.StringUtils;
 
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.stream.Collectors;
 
 /**
  * @author 橙子
@@ -72,10 +70,14 @@ public class StringUtil {
     }
 
     public static String join(Object[] array, String s) {
-        return StringUtils.join(Arrays.stream(array).map(Object::toString).collect(Collectors.toList()), s);
+        StringBuilder stringBuilder = new StringBuilder();
+        Arrays.stream(array).map(Object::toString).forEach(str -> stringBuilder.append(str).append(s));
+        return stringBuilder.toString();
     }
 
     public static String join(Collection<?> collection, String s) {
-        return StringUtils.join(collection.stream().map(Object::toString).collect(Collectors.toList()), s);
+        StringBuilder stringBuilder = new StringBuilder();
+        collection.stream().map(Object::toString).forEach(str -> stringBuilder.append(str).append(s));
+        return stringBuilder.toString();
     }
 }
