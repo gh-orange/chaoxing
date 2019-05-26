@@ -42,12 +42,12 @@ import java.util.stream.IntStream;
 
 /**
  * @author 橙子
- * @version 1.4.2
+ * @version 1.4.3
  */
 public class Application {
 
     private static void copyright() {
-        IOUtil.println("ChaoxingPlugin v1.4.2 - powered by orange");
+        IOUtil.println("ChaoxingPlugin v1.4.3 - powered by orange");
         IOUtil.println("License - GPLv3: This is a free & share software");
         IOUtil.println("You can checking source code from: https://github.com/cz111000/chaoxing");
     }

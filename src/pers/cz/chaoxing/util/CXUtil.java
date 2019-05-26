@@ -221,9 +221,8 @@ public class CXUtil {
      * @throws CheckCodeException
      */
     public static boolean startPlayer(String chapterURL) throws CheckCodeException {
-//        final Map<String, String> params = NetUtil.getQueries(chapterURL).stream().collect(Collectors.toMap(Parameter::getName, Parameter::getValue));
-//        return NetUtil.get(ApiURL.PLAY_VALIDATE.buildURL(NetUtil.getOriginal(chapterURL), params.get("courseId"), params.get("clazzid"), params.get("chapterId"))).toTextResponse().getBody().contains("true");
-        return true;
+        final Map<String, String> params = NetUtil.getQueries(chapterURL).stream().collect(Collectors.toMap(Parameter::getName, Parameter::getValue));
+        return NetUtil.get(ApiURL.PLAY_VALIDATE.buildURL(NetUtil.getOriginal(chapterURL), params.get("courseId"), params.get("clazzid"), params.get("chapterId"))).toTextResponse().getBody().contains("true");
     }
 
     public static boolean startExam(String examURL, TaskInfo<ExamTaskData> taskInfo, ExamTaskData attachment) throws CheckCodeException {
