@@ -1,6 +1,7 @@
 package pers.cz.chaoxing.thread.task;
 
 import net.dongliu.requests.exception.RequestsException;
+import pers.cz.chaoxing.callback.PauseCallBack;
 import pers.cz.chaoxing.callback.checkcode.CheckCodeCallBack;
 import pers.cz.chaoxing.callback.checkcode.CheckCodeFactory;
 import pers.cz.chaoxing.common.OptionInfo;
@@ -10,7 +11,6 @@ import pers.cz.chaoxing.common.quiz.data.QuizData;
 import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.common.task.data.TaskData;
 import pers.cz.chaoxing.exception.WrongAccountException;
-import pers.cz.chaoxing.callback.PauseCallBack;
 import pers.cz.chaoxing.util.CXUtil;
 import pers.cz.chaoxing.util.Try;
 import pers.cz.chaoxing.util.io.IOUtil;
@@ -32,7 +32,6 @@ public abstract class TaskModel<T extends TaskData, K extends QuizData> implemen
     boolean hasFail;
     Control control;
     CheckCodeCallBack<?> checkCodeCallBack;
-    private Thread refreshTask;
 
     TaskModel(TaskInfo<T> taskInfo, T attachment, String url) {
         this.url = url;
@@ -56,13 +55,11 @@ public abstract class TaskModel<T extends TaskData, K extends QuizData> implemen
                 control.release();
             }
         } catch (RequestsException e) {
-            String message = StringUtil.subStringAfterFirst(e.getLocalizedMessage(), ":").trim();
-            IOUtil.println("Net connection error: " + message);
+            IOUtil.println("exception_network", StringUtil.subStringAfterFirst(e.getLocalizedMessage(), ":").trim());
         } catch (WrongAccountException e) {
-            Optional.ofNullable(e.getLocalizedMessage()).ifPresent(IOUtil::println);
+            IOUtil.println("exception_account", e.getLocalizedMessage());
         } catch (Exception ignored) {
         }
-        Optional.ofNullable(refreshTask).ifPresent(Thread::interrupt);
         return false;
     }
 
@@ -116,34 +113,51 @@ public abstract class TaskModel<T extends TaskData, K extends QuizData> implemen
     public List<OptionInfo> manualCompleteAnswer(QuizData quizData) {
         ArrayList<OptionInfo> options = new ArrayList<>();
         do {
-            List<String> answers = IOUtil.printAndNextLine("Input answers (such as C or ABC):").replaceAll("\\s", "").chars()
-                    .mapToObj(i -> Character.toString((char) i))
-                    .collect(Collectors.toList());
-            for (OptionInfo option : quizData.getOptions()) {
-                if (answers.stream().anyMatch(answer -> answer.equalsIgnoreCase(option.getName()))) {
-                    options.add(new OptionInfo(option));
-                    if (!quizData.getQuestionType().equals("1"))
-                        break;
+            String rightAnswerStr = IOUtil.printAndNextLine("input_answer", quizData.getOptions().length == 1 || !quizData.getQuestionType().equals("1") ? quizData.getOptions()[0].getName() : quizData.getOptions()[0].getName() + quizData.getOptions()[quizData.getOptions().length - 1].getName()).replaceAll("\\s", "");
+            if (rightAnswerStr.matches("(?i)[√✓✔对是]|正确|T(RUE)?|Y(ES)?|RIGHT|CORRECT"))
+                rightAnswerStr = "true";
+            else if (rightAnswerStr.matches("(?i)[X×✖错否]|错误|F(ALSE)?|N(O)?|WRONG|INCORRECT"))
+                rightAnswerStr = "false";
+            else {
+                List<String> answers = rightAnswerStr.chars()
+                        .mapToObj(i -> Character.toString((char) i))
+                        .collect(Collectors.toList());
+                for (OptionInfo option : quizData.getOptions()) {
+                    if (answers.stream().anyMatch(answer -> answer.equalsIgnoreCase(option.getName()))) {
+                        options.add(new OptionInfo(option));
+                        if (!quizData.getQuestionType().equals("1"))
+                            break;
+                    }
                 }
             }
+            if (options.isEmpty())
+                for (OptionInfo option : quizData.getOptions())
+                    if (rightAnswerStr.equalsIgnoreCase(option.getName())) {
+                        options.add(new OptionInfo(option));
+                        break;
+                    }
         } while (options.isEmpty());
         return options;
     }
 
     void startRefreshTask() {
-        refreshTask = new Thread(() -> {
+        new Thread(() -> {
             try {
-                while (true) {
-                    Thread.sleep(6000);
-                    Try.ever(() -> CXUtil.refreshMenu(url, taskInfo.getDefaults().getClazzId(), taskInfo.getDefaults().getCourseid(), taskInfo.getDefaults().getChapterId()), CheckCodeFactory.CUSTOM.get());
-                }
+                Thread.sleep(6000);
             } catch (InterruptedException ignored) {
             }
-        });
-        refreshTask.start();
+            Try.ever(() -> CXUtil.getListInfo(url, taskInfo.getDefaults().getClazzId(), taskInfo.getDefaults().getCourseid(), taskInfo.getDefaults().getChapterId()), CheckCodeFactory.CUSTOM.get());
+        }).start();
     }
 
-    void threadPrintln(String first, String... more) {
-        IOUtil.println(Thread.currentThread().getName() + ": " + first, more);
+    void threadPrintln(String key, Object... args) {
+        threadPrintln(key, args, new String[0]);
+    }
+
+    void threadPrintln(String key, Object[] args, String... lines) {
+        Object[] newArgs = new Object[args.length + 1];
+        newArgs[0] = Thread.currentThread().getName();
+        System.arraycopy(args, 0, newArgs, 1, args.length);
+        IOUtil.println(key, newArgs, lines);
     }
 }

@@ -2,7 +2,7 @@ package pers.cz.chaoxing.common.quiz.data.player;
 
 import pers.cz.chaoxing.common.quiz.data.QuizData;
 
-public class PlayerQuizData extends QuizData {
+public class VideoQuizData extends QuizData {
     private String resourceId;
     private String memberinfo;
     private String validationUrl;

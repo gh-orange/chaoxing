@@ -1,15 +1,16 @@
 package pers.cz.chaoxing.thread.manager;
 
+import pers.cz.chaoxing.callback.checkcode.CheckCodeData;
 import pers.cz.chaoxing.callback.checkcode.CheckCodeFactory;
+import pers.cz.chaoxing.common.task.TaskInfo;
+import pers.cz.chaoxing.common.task.data.exam.ExamTaskData;
 import pers.cz.chaoxing.exception.CheckCodeException;
+import pers.cz.chaoxing.exception.ExamStateException;
+import pers.cz.chaoxing.thread.task.ExamTask;
 import pers.cz.chaoxing.util.CXUtil;
+import pers.cz.chaoxing.util.InfoType;
 import pers.cz.chaoxing.util.Try;
 import pers.cz.chaoxing.util.io.IOUtil;
-import pers.cz.chaoxing.callback.checkcode.CheckCodeData;
-import pers.cz.chaoxing.common.task.data.exam.ExamTaskData;
-import pers.cz.chaoxing.common.task.TaskInfo;
-import pers.cz.chaoxing.thread.task.ExamTask;
-import pers.cz.chaoxing.util.InfoType;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -42,24 +43,27 @@ public class ExamManager extends ManagerModel {
                                     isAllowed = CXUtil.startExam(url, examInfo, attachment);
                                 } catch (CheckCodeException e) {
                                     attachment.setEnc(((CheckCodeData) CheckCodeFactory.EXAM.get().onCheckCode(e.getUrl(), attachment.getProperty().gettId(), examInfo.getDefaults().getClazzId(), examInfo.getDefaults().getCourseid(), "callback")).getEnc());
+                                } catch (ExamStateException e) {
+                                    isAllowed = false;
+                                    IOUtil.println("exception_exam", attachment.getProperty().getTitle(), e.getFinishStandard());
                                 }
                                 if (isAllowed) {
                                     String examName = attachment.getProperty().getTitle();
-                                    IOUtil.println("exam did not pass: " + examName);
+                                    IOUtil.println("manager_exam_thread_start", examName);
                                     ExamTask examTask = new ExamTask(examInfo, attachment, url);
                                     examTask.setCheckCodeCallBack(CheckCodeFactory.EXAM.get());
                                     examTask.setControl(control);
                                     completionService.submit(examTask);
                                     threadCount++;
-                                    IOUtil.println("Added examTask to ThreadPool: " + examName);
+                                    IOUtil.println("manager_exam_thread_finish", examName);
                                 }
                             }, CheckCodeFactory.CUSTOM.get()));
                 }));
-        IOUtil.println("All exam task has been called");
+        IOUtil.println("manager_exam_start");
     }
 
     public void close() {
         super.close();
-        IOUtil.println("Finished examTask count: " + successCount + "/" + threadCount);
+        IOUtil.println("manager_exam_finish", successCount, threadCount);
     }
 }

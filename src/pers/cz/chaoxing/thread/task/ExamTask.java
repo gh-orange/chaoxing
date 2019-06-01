@@ -24,7 +24,7 @@ public class ExamTask extends TaskModel<ExamTaskData, ExamQuizData> {
 
     @Override
     public void doTask() throws Exception {
-        threadPrintln(this.taskName + "[exam start]");
+        threadPrintln("thread_exam_start", this.taskName);
         examQuizInfo = loadQuizInfo(attachment);
         Try.ever(() -> CXUtil.getExamQuiz(url, examQuizInfo), checkCodeCallBack);
         Map<ExamQuizData, List<OptionInfo>> answers = new HashMap<>();
@@ -41,7 +41,7 @@ public class ExamTask extends TaskModel<ExamTaskData, ExamQuizData> {
                 answers.entrySet().stream()
                         .filter(entry -> !entry.getValue().isEmpty())
                         .forEach(entry -> threadPrintln(
-                                this.taskName + "[exam store success]",
+                                "thread_exam_store_success", new Object[]{this.taskName},
                                 entry.getKey().getDescription(),
                                 StringUtil.join(entry.getValue())
                         ));
@@ -50,10 +50,9 @@ public class ExamTask extends TaskModel<ExamTaskData, ExamQuizData> {
             examQuizInfo.setPassed(answerQuestion(answers));
         if (control.isSleep())
             Thread.sleep(3 * 1000);
-        if (examQuizInfo.isPassed())
-            threadPrintln(this.taskName + "[exam answer finish]");
-        else
-            threadPrintln(this.taskName + "[exam store finish]");
+        threadPrintln(examQuizInfo.isPassed() ?
+                        "thread_exam_answer_finish" : "thread_exam_store_finish",
+                this.taskName);
     }
 
     private QuizInfo<ExamQuizData, ExamQuizConfig> loadQuizInfo(ExamTaskData attachment) {
@@ -65,6 +64,7 @@ public class ExamTask extends TaskModel<ExamTaskData, ExamQuizData> {
         examQuizInfo.getDefaults().setTestUserRelationId(attachment.getProperty().getId());
         examQuizInfo.getDefaults().setExamsystem(attachment.getProperty().getExamsystem());
         examQuizInfo.getDefaults().setEnc(attachment.getEnc());
+        examQuizInfo.getDefaults().setCpi(attachment.getProperty().getCpi());
         return examQuizInfo;
     }
 
@@ -74,7 +74,8 @@ public class ExamTask extends TaskModel<ExamTaskData, ExamQuizData> {
         ExamQuizData quizData = quizInfo.getDatas()[((ExamQuizConfig) quizInfo.getDefaults()).getStart()];
         CXUtil.getQuizAnswer(quizData).forEach(optionInfo -> questions.computeIfAbsent(quizData, key -> new ArrayList<>()).add(optionInfo));
         if (!questions.containsKey(quizData)) {
-            threadPrintln(this.taskName + "[exam answer match failure]", quizData.toString());
+            threadPrintln("thread_exam_answer_failure", new Object[]{this.taskName},
+                    quizData.toString());
             hasFail = !completeAnswer(questions, quizData);
         }
         if (questions.containsKey(quizData))
@@ -94,6 +95,7 @@ public class ExamTask extends TaskModel<ExamTaskData, ExamQuizData> {
 
     @Override
     protected boolean answerQuestion(Map<ExamQuizData, List<OptionInfo>> answers) {
+        examQuizInfo.getDefaults().setTempSave(false);
         boolean isPassed = Try.ever(() -> CXUtil.answerExamQuiz(this.examQuizInfo.getDefaults(), answers), checkCodeCallBack, this.examQuizInfo.getDefaults(), taskInfo.getDefaults().getKnowledgeid(), this.examQuizInfo.getDefaults().getClassId(), this.examQuizInfo.getDefaults().getCourseId());
         if (isPassed)
             answers.keySet().forEach(examQuizData -> examQuizData.setAnswered(true));

@@ -1,14 +1,14 @@
 package pers.cz.chaoxing.callback.checkcode.impl;
 
+import net.dongliu.requests.RawResponse;
+import net.dongliu.requests.StatusCodes;
+import pers.cz.chaoxing.callback.checkcode.CheckCodeCallBack;
+import pers.cz.chaoxing.callback.checkcode.CheckCodeData;
 import pers.cz.chaoxing.callback.checkcode.CheckCodeFactory;
 import pers.cz.chaoxing.util.Try;
 import pers.cz.chaoxing.util.io.IOUtil;
 import pers.cz.chaoxing.util.net.ApiURL;
 import pers.cz.chaoxing.util.net.NetUtil;
-import net.dongliu.requests.RawResponse;
-import net.dongliu.requests.StatusCodes;
-import pers.cz.chaoxing.callback.checkcode.CheckCodeCallBack;
-import pers.cz.chaoxing.callback.checkcode.CheckCodeData;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -38,8 +38,8 @@ public class HomeworkCheckCodeJob extends CheckCodeJobModel implements CheckCode
                     if (!receiveCheckCode(checkCodePath))
                         break;
                     if (!readCheckCode(checkCodePath))
-                        IOUtil.println("CheckCode image path: " + checkCodePath);
-                    checkCodeData = setCheckCode(IOUtil.printAndNext("Input checkCode:"), param[1], param[2], param[3]);
+                        IOUtil.println("check_code_image_path", checkCodePath);
+                    checkCodeData = setCheckCode(IOUtil.printAndNext("input_check_code"), param[1], param[2], param[3]);
                 } while (!checkCodeData.isStatus());
             } finally {
                 lock.writeLock().unlock();
@@ -55,7 +55,7 @@ public class HomeworkCheckCodeJob extends CheckCodeJobModel implements CheckCode
 
     @Override
     protected boolean receiveCheckCode(String path) {
-        while (true) {
+        do {
             RawResponse response = Try.ever(() -> NetUtil.get(receiveURL, 1), CheckCodeFactory.CUSTOM.get());
             if (StatusCodes.NOT_FOUND == response.getStatusCode())
                 return false;
@@ -67,7 +67,7 @@ public class HomeworkCheckCodeJob extends CheckCodeJobModel implements CheckCode
                     break;
             } catch (IOException ignored) {
             }
-        }
+        } while (true);
         return true;
     }
 

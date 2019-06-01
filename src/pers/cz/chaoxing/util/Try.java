@@ -87,6 +87,19 @@ public final class Try {
         }
     }
 
+    public static <T> T ever(ExceptionSupplier<T, CheckCodeException> supplier, CheckCodeCallBack<?> checkCodeCallBack, CheckCodeData checkCodeData) {
+        while (true)
+            try {
+                return supplier.get();
+            } catch (CheckCodeException e) {
+                CheckCodeData result = (CheckCodeData) checkCodeCallBack.onCheckCode(e.getUrl());
+                checkCodeData.setStatus(result.isStatus());
+                checkCodeData.setCode(result.getCode());
+                checkCodeData.setEnc(result.getEnc());
+                checkCodeData.setCpi(result.getCpi());
+            }
+    }
+
     public static <T> T ever(ExceptionSupplier<T, WrongAccountException> supplier, CheckCodeCallBack<?> checkCodeCallBack, HomeworkQuizConfig homeworkQuizConfig, String... extra) throws WrongAccountException {
         while (true)
             try {

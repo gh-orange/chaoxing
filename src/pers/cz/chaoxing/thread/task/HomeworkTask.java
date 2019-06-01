@@ -24,7 +24,7 @@ public class HomeworkTask extends TaskModel<HomeworkTaskData, HomeworkQuizData> 
 
     @Override
     public void doTask() throws Exception {
-        threadPrintln(this.taskName + "[homework start]");
+        threadPrintln("thread_homework_start", this.taskName);
         startRefreshTask();
         Map<HomeworkQuizData, List<OptionInfo>> answers = getAnswers(this.homeworkQuizInfo);
         control.checkState(this);
@@ -33,7 +33,7 @@ public class HomeworkTask extends TaskModel<HomeworkTaskData, HomeworkQuizData> 
                 answers.entrySet().stream()
                         .filter(entry -> !entry.getValue().isEmpty())
                         .forEach(entry -> threadPrintln(
-                                this.taskName + "[homework store success]",
+                                "thread_homework_store_success", new Object[]{this.taskName},
                                 entry.getKey().getDescription(),
                                 StringUtil.join(entry.getValue())
                         ));
@@ -41,7 +41,7 @@ public class HomeworkTask extends TaskModel<HomeworkTaskData, HomeworkQuizData> 
             this.homeworkQuizInfo.setPassed(answerQuestion(answers));
             if (this.homeworkQuizInfo.isPassed())
                 answers.forEach((key, value) -> threadPrintln(
-                        this.taskName + "[homework answer success]",
+                        "thread_homework_answer_success", new Object[]{this.taskName},
                         key.getDescription(),
                         StringUtil.join(value)
                 ));
@@ -49,10 +49,9 @@ public class HomeworkTask extends TaskModel<HomeworkTaskData, HomeworkQuizData> 
         }
         if (control.isSleep())
             Thread.sleep(3 * 60 * 1000);
-        if (this.homeworkQuizInfo.isPassed())
-            threadPrintln(this.taskName + "[homework answer finish]");
-        else
-            threadPrintln(this.taskName + "[homework store finish]");
+        threadPrintln(this.homeworkQuizInfo.isPassed() ?
+                        "thread_homework_answer_finish" : "thread_homework_store_finish",
+                this.taskName);
     }
 
     @Override
@@ -61,7 +60,8 @@ public class HomeworkTask extends TaskModel<HomeworkTaskData, HomeworkQuizData> 
         Arrays.stream(quizInfo.getDatas()).forEach(quizData -> {
             CXUtil.getQuizAnswer(quizData).forEach(optionInfo -> questions.computeIfAbsent(quizData, key -> new ArrayList<>()).add(optionInfo));
             if (!questions.containsKey(quizData)) {
-                threadPrintln(this.taskName + "[homework answer match failure]", quizData.toString());
+                threadPrintln("thread_homework_answer_failure", new Object[]{this.taskName},
+                        quizData.toString());
                 hasFail = !completeAnswer(questions, quizData);
             }
             if (questions.containsKey(quizData))

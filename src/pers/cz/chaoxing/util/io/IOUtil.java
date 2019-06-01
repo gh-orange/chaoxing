@@ -13,6 +13,7 @@ import java.util.regex.Pattern;
  * @since 2018/10/25
  */
 public final class IOUtil {
+    private static ResourceBundle resourceBundle;
     private static Queue<Optional<String>> inputData;
     private static ReadWriteLock lock;
     private static Condition condition;
@@ -29,11 +30,11 @@ public final class IOUtil {
         return IOUtil.printAndNextInt("");
     }
 
-    public static String printAndNext(String promptString) {
+    public static String printAndNext(String promptKey, Object... args) {
         IOUtil.lock.writeLock().lock();
         try {
-            if (!promptString.isEmpty())
-                IOUtil.print(promptString);
+            if (!promptKey.isEmpty())
+                IOUtil.print(promptKey, args);
             while (IOUtil.inputData.isEmpty())
                 IOUtil.condition.await();
             String result = IOUtil.inputData.poll().orElse("");
@@ -46,11 +47,11 @@ public final class IOUtil {
         }
     }
 
-    public static String printAndNextLine(String promptString) {
+    public static String printAndNextLine(String promptKey, Object... args) {
         IOUtil.lock.writeLock().lock();
         try {
-            if (!promptString.isEmpty())
-                IOUtil.print(promptString);
+            if (!promptKey.isEmpty())
+                IOUtil.print(promptKey, args);
             while (IOUtil.inputData.isEmpty())
                 IOUtil.condition.await();
             StringBuilder stringBuilder = new StringBuilder();
@@ -65,11 +66,11 @@ public final class IOUtil {
         }
     }
 
-    public static int printAndNextInt(String promptString) {
+    public static int printAndNextInt(String promptKey, Object... args) {
         IOUtil.lock.writeLock().lock();
         try {
-            if (!promptString.isEmpty())
-                IOUtil.print(promptString);
+            if (!promptKey.isEmpty())
+                IOUtil.print(promptKey, args);
             String result;
             do {
                 while (IOUtil.inputData.isEmpty())
@@ -85,26 +86,36 @@ public final class IOUtil {
         }
     }
 
-    public static void print(String str) {
+    public static void print(String key, Object... args) {
+        if (key.isEmpty())
+            return;
         IOUtil.lock.readLock().lock();
         try {
-            System.out.print(str);
+            System.out.print(String.format(IOUtil.resourceBundle.getString(key), args));
         } finally {
             IOUtil.lock.readLock().unlock();
         }
     }
 
-    public static void println(String first, String... more) {
+    public static void println(String key, Object... args) {
+        println(key, args, new String[0]);
+    }
+
+    public static void println(String key, Object[] args, String... lines) {
         IOUtil.lock.readLock().lock();
         try {
-            System.out.println(first);
-            Arrays.stream(more).forEach(System.out::println);
+            String format = IOUtil.resourceBundle.getString(key);
+            if (key.startsWith("thread_"))
+                format = IOUtil.resourceBundle.getString("thread_prefix") + format;
+            System.out.println(String.format(format, args));
+            Arrays.stream(lines).forEach(System.out::println);
         } finally {
             IOUtil.lock.readLock().unlock();
         }
     }
 
     static {
+        IOUtil.resourceBundle = ResourceBundle.getBundle("strings");
         IOUtil.inputData = new LinkedList<>();
         IOUtil.lock = new ReentrantReadWriteLock();
         IOUtil.condition = IOUtil.lock.writeLock().newCondition();

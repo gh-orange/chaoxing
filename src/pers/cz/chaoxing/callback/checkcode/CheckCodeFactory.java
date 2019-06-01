@@ -2,7 +2,6 @@ package pers.cz.chaoxing.callback.checkcode;
 
 import pers.cz.chaoxing.callback.checkcode.impl.*;
 
-import java.net.Proxy;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -17,6 +16,12 @@ public enum CheckCodeFactory {
         @Override
         protected void createInstance() {
             this.callBack = new LoginCheckCodeJob("./checkCode-login.jpeg");
+        }
+    },
+    CHAPTER {
+        @Override
+        protected void createInstance() {
+            this.callBack = new ChapterCheckCodeJob("checkCode-chapter.jpeg");
         }
     },
     CUSTOM {

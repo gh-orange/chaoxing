@@ -1,13 +1,13 @@
 package pers.cz.chaoxing.callback.checkcode.impl;
 
-import pers.cz.chaoxing.callback.checkcode.CheckCodeFactory;
-import pers.cz.chaoxing.util.io.IOUtil;
-import pers.cz.chaoxing.util.net.NetUtil;
 import pers.cz.chaoxing.callback.checkcode.CheckCodeCallBack;
+import pers.cz.chaoxing.callback.checkcode.CheckCodeFactory;
 import pers.cz.chaoxing.exception.CheckCodeException;
 import pers.cz.chaoxing.exception.WrongAccountException;
 import pers.cz.chaoxing.util.CXUtil;
 import pers.cz.chaoxing.util.Try;
+import pers.cz.chaoxing.util.io.IOUtil;
+import pers.cz.chaoxing.util.net.NetUtil;
 
 import java.nio.file.Paths;
 
@@ -33,8 +33,8 @@ public class LoginCheckCodeJob extends CheckCodeJobModel implements CheckCodeCal
                     if (!receiveCheckCode(checkCodePath))
                         break;
                     if (!readCheckCode(checkCodePath))
-                        IOUtil.println("CheckCode image path: " + checkCodePath);
-                    indexURL = sendCheckCode(IOUtil.printAndNextLine("Input checkCode:").replaceAll("\\s", ""));
+                        IOUtil.println("check_code_image_path", checkCodePath);
+                    indexURL = sendCheckCode(IOUtil.printAndNextLine("input_check_code").replaceAll("\\s", ""));
                 } while (indexURL.isEmpty());
             } finally {
                 lock.writeLock().unlock();
@@ -59,9 +59,9 @@ public class LoginCheckCodeJob extends CheckCodeJobModel implements CheckCodeCal
         try {
             return CXUtil.login(fid, username, password, checkCode);
         } catch (WrongAccountException e) {
-            IOUtil.println(e.getLocalizedMessage());
-            username = IOUtil.printAndNextLine("Input account:");
-            password = IOUtil.printAndNextLine("Input password:");
+            IOUtil.println("exception_account", e.getLocalizedMessage());
+            username = IOUtil.printAndNextLine("input_account");
+            password = IOUtil.printAndNextLine("input_password");
         } catch (CheckCodeException e) {
             receiveURL = e.getUrl();
         }

@@ -1,13 +1,13 @@
 package pers.cz.chaoxing.common.quiz.data;
 
-import pers.cz.chaoxing.util.io.StringUtil;
 import pers.cz.chaoxing.common.OptionInfo;
+import pers.cz.chaoxing.util.io.StringUtil;
 
 /**
  * @author 橙子
  * @since 2018/9/23
  */
-public abstract class QuizData {
+public abstract class QuizData implements Cloneable {
     private boolean answered;
     private String description;
     private String questionType;
@@ -57,5 +57,14 @@ public abstract class QuizData {
     @Override
     public String toString() {
         return description + '\n' + StringUtil.join(options);
+    }
+
+    @Override
+    public QuizData clone() {
+        try {
+            return (QuizData) super.clone();
+        } catch (CloneNotSupportedException e) {
+            return this;
+        }
     }
 }

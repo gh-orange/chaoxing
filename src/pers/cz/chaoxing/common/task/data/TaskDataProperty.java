@@ -1,5 +1,7 @@
 package pers.cz.chaoxing.common.task.data;
 
+import com.alibaba.fastjson.annotation.JSONField;
+
 public abstract class TaskDataProperty {
     private String jobid;
     private String module;
@@ -34,6 +36,7 @@ public abstract class TaskDataProperty {
         return _jobid;
     }
 
+    @JSONField(name = "_jobid")
     public void set_jobid(String _jobid) {
         this._jobid = _jobid;
     }

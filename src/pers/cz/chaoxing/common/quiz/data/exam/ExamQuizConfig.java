@@ -12,6 +12,7 @@ public class ExamQuizConfig {
     private String testUserRelationId;
     private String examsystem;
     private String enc;
+    private String cpi;
     private boolean tempSave;
     private boolean timeOver;
     private int start;
@@ -73,6 +74,14 @@ public class ExamQuizConfig {
 
     public void setEnc(String enc) {
         this.enc = enc;
+    }
+
+    public String getCpi() {
+        return cpi;
+    }
+
+    public void setCpi(String cpi) {
+        this.cpi = cpi;
     }
 
     public boolean isTempSave() {

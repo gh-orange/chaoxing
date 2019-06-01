@@ -1,34 +1,42 @@
 package pers.cz.chaoxing.util;
 
-import pers.cz.chaoxing.common.quiz.QuizInfo;
-import pers.cz.chaoxing.util.io.IOUtil;
-import pers.cz.chaoxing.util.net.ApiURL;
-import pers.cz.chaoxing.util.net.JsoupResponseHandler;
-import pers.cz.chaoxing.util.net.NetUtil;
 import com.alibaba.fastjson.*;
-import net.dongliu.requests.*;
+import net.dongliu.requests.Cookie;
+import net.dongliu.requests.Parameter;
+import net.dongliu.requests.Response;
+import net.dongliu.requests.StatusCodes;
+import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.nodes.TextNode;
 import org.jsoup.select.Elements;
 import pers.cz.chaoxing.common.OptionInfo;
+import pers.cz.chaoxing.common.ReadInfo;
 import pers.cz.chaoxing.common.VideoInfo;
-import pers.cz.chaoxing.common.school.SchoolInfo;
+import pers.cz.chaoxing.common.quiz.QuizInfo;
 import pers.cz.chaoxing.common.quiz.data.QuizData;
 import pers.cz.chaoxing.common.quiz.data.exam.ExamQuizConfig;
 import pers.cz.chaoxing.common.quiz.data.exam.ExamQuizData;
 import pers.cz.chaoxing.common.quiz.data.homework.HomeworkQuizConfig;
 import pers.cz.chaoxing.common.quiz.data.homework.HomeworkQuizData;
-import pers.cz.chaoxing.common.quiz.data.player.PlayerQuizData;
-import pers.cz.chaoxing.common.task.*;
+import pers.cz.chaoxing.common.quiz.data.player.VideoQuizData;
+import pers.cz.chaoxing.common.school.SchoolInfo;
+import pers.cz.chaoxing.common.task.ReadCardInfo;
+import pers.cz.chaoxing.common.task.TaskConfig;
+import pers.cz.chaoxing.common.task.TaskInfo;
 import pers.cz.chaoxing.common.task.data.TaskData;
-import pers.cz.chaoxing.common.task.data.exam.ExamTaskData;
 import pers.cz.chaoxing.common.task.data.exam.ExamDataProperty;
+import pers.cz.chaoxing.common.task.data.exam.ExamTaskData;
 import pers.cz.chaoxing.common.task.data.homework.HomeworkTaskData;
 import pers.cz.chaoxing.common.task.data.player.PlayerTaskData;
+import pers.cz.chaoxing.common.task.data.player.ReadTaskData;
 import pers.cz.chaoxing.exception.CheckCodeException;
+import pers.cz.chaoxing.exception.ExamStateException;
 import pers.cz.chaoxing.exception.WrongAccountException;
 import pers.cz.chaoxing.util.io.StringUtil;
+import pers.cz.chaoxing.util.net.ApiURL;
+import pers.cz.chaoxing.util.net.JsoupResponseHandler;
+import pers.cz.chaoxing.util.net.NetUtil;
 
 import javax.script.Invocable;
 import javax.script.ScriptEngine;
@@ -37,6 +45,8 @@ import java.lang.reflect.Type;
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -44,7 +54,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class CXUtil {
-
     private static final Type TASK_INFO_TYPE = new TypeReference<TaskInfo<TaskData>>() {
     }.getType();
 
@@ -54,7 +63,7 @@ public class CXUtil {
     private static final Type HOMEWORK_INFO_TYPE = new TypeReference<TaskInfo<HomeworkTaskData>>() {
     }.getType();
 
-    private static final Type PLAYER_QUIZ_INFO_TYPE = new TypeReference<List<QuizInfo<PlayerQuizData, Void>>>() {
+    private static final Type PLAYER_QUIZ_INFO_TYPE = new TypeReference<List<QuizInfo<VideoQuizData, Void>>>() {
     }.getType();
 
     public static final JsoupResponseHandler RESPONSE_HANDLER = new JsoupResponseHandler();
@@ -71,14 +80,27 @@ public class CXUtil {
         body.put("allowJoin", "0");
         body.put("filter", schoolName);
         try {
-            return NetUtil.post(ApiURL.SEARCH_SCHOOL.buildURL(document.baseUri()), body).toJsonResponse(SchoolInfo.class).getBody();
-        } catch (JSONException e) {
-            return new SchoolInfo(false);
+            return NetUtil.post(ApiURL.SCHOOL_SEARCH.buildURL(document.baseUri()), body).toJsonResponse(SchoolInfo.class).getBody();
+        } catch (JSONException ignored) {
         }
+        return new SchoolInfo(false);
+    }
+
+    public static String getNotice(int fid) throws CheckCodeException {
+        try {
+            return Optional.ofNullable(JSON.parseObject(NetUtil.get(ApiURL.SCHOOL_NOTICE_ABS.buildURL(fid)).toTextResponse().getBody()).getString("content"))
+                    .map(s -> s.replace("</p>", "\n</p>"))
+                    .map(Jsoup::parse)
+                    .map(Element::wholeText)
+                    .map(String::trim)
+                    .orElse("");
+        } catch (JSONException ignored) {
+        }
+        return "";
     }
 
     public static String login(int fid, String username, String password, String checkCode) throws WrongAccountException, CheckCodeException {
-        Document document = NetUtil.get(ApiURL.LOGIN_SCHOOL_ABS.buildURL(String.valueOf(fid))).toResponse(RESPONSE_HANDLER).getBody();
+        Document document = NetUtil.get(ApiURL.LOGIN_SCHOOL_ABS.buildURL(fid)).toResponse(RESPONSE_HANDLER).getBody();
         if (document.wholeText().isEmpty())
             return "";
         Map<String, String> body = new HashMap<>();
@@ -99,7 +121,7 @@ public class CXUtil {
         if (response.getBody().contains("密码错误") || response.getBody().contains("参数为空"))
             throw new WrongAccountException();
         if (response.getBody().contains("用户登录"))
-            throw new CheckCodeException(ApiURL.LOGIN_CHECK_CODE.buildURL(NetUtil.getOriginal(response.getURL()), String.valueOf(System.currentTimeMillis())));
+            throw new CheckCodeException(ApiURL.LOGIN_CHECK_CODE.buildURL(NetUtil.getOriginal(response.getURL()), System.currentTimeMillis()));
         return response.getURL();
     }
 
@@ -128,9 +150,17 @@ public class CXUtil {
                     } catch (Exception ignored) {
                     }
                 });
+        document.select("script[src~=log]").stream()
+                .map(script -> script.absUrl("src"))
+                .forEach(src -> {
+                    try {
+                        NetUtil.get(src).toTextResponse().getBody().contains("success");
+                    } catch (Exception ignored) {
+                    }
+                });
         Map<String, List<String>> courseInfo = new HashMap<>();
         courseInfo.put("chapterURLs", document.select("h3.clearfix").stream()
-                .filter(element -> !element.is("em.openlock"))
+                .filter(element -> !Optional.ofNullable(element.selectFirst("em.openlock")).isPresent())
                 .map(element -> element.select("span.articlename a"))
                 .flatMap(Collection::stream)
                 .map(element -> element.absUrl("href"))
@@ -141,8 +171,8 @@ public class CXUtil {
         return courseInfo;
     }
 
-    public static String getUtEnc(String chapterURL) throws CheckCodeException {
-        Document document = NetUtil.get(chapterURL, 0).toResponse(RESPONSE_HANDLER).getBody();
+    public static String getUtEnc(String taskURL) throws CheckCodeException {
+        Document document = NetUtil.get(taskURL, 0).toResponse(RESPONSE_HANDLER).getBody();
         Elements scripts = document.select("script");
         scripts.select("[src~=log]").forEach(script -> {
             try {
@@ -153,26 +183,49 @@ public class CXUtil {
         return StringUtil.subStringBetweenFirst(scripts.html(), "utEnc=\"", "\";");
     }
 
-    public static <T extends TaskData> TaskInfo<T> getTaskInfo(String chapterOrExamURL, InfoType infoType) throws CheckCodeException {
-        final Map<String, String> body = NetUtil.getQueries(chapterOrExamURL).stream().collect(Collectors.toMap(Parameter::getName, Parameter::getValue));
+    public static <T extends TaskData> TaskInfo<T> getTaskInfo(String taskOrExamURL, InfoType infoType) throws CheckCodeException {
+        final Map<String, String> body = NetUtil.getQueries(taskOrExamURL).stream().collect(Collectors.toMap(Parameter::getName, Parameter::getValue));
         if (infoType.equals(InfoType.EXAM))
-            return (TaskInfo<T>) CXUtil.getExamInfo(chapterOrExamURL, body);
-        Document document = NetUtil.post(ApiURL.TITLE_INFO.buildURL(NetUtil.getOriginal(chapterOrExamURL)), body, 0).toResponse(RESPONSE_HANDLER).getBody();
-        document.select("script[src~=log]").stream()
-                .map(script -> script.absUrl("src"))
-                .forEach(src -> {
-                    try {
-                        NetUtil.get(src + "&_=" + System.currentTimeMillis()).toTextResponse().getBody().contains("success");
-                    } catch (Exception ignored) {
-                    }
-                });
-        String responseStr = NetUtil.get(ApiURL.TASK_INFO.buildURL(NetUtil.getOriginal(chapterOrExamURL),
-                body.get("clazzid"),
-                body.get("courseId"),
-                body.get("chapterId"),
-                String.valueOf(infoType.getId())
-        ), 0).toTextResponse().getBody();
-        String jsonStr = StringUtil.subStringBetweenFirst(StringUtil.subStringAfterFirst(responseStr, "try{"), "mArg = ", ";");
+            return (TaskInfo<T>) CXUtil.getExamInfo(taskOrExamURL, body);
+        body.put("verificationcode", body.remove("code"));
+        Document titleDocument = NetUtil.post(ApiURL.TITLE_INFO.buildURL(NetUtil.getOriginal(taskOrExamURL)), body, 0).toResponse(RESPONSE_HANDLER).getBody();
+        Document taskDocument;
+        boolean isLocked = false;
+        do {
+            titleDocument.select("script[src~=log]").stream()
+                    .map(script -> script.absUrl("src"))
+                    .forEach(src -> {
+                        try {
+                            NetUtil.getQueries(src).stream().filter(parameter -> parameter.getName().equals("personid")).map(Parameter::getValue).findAny().ifPresent(cpi -> body.put("cpi", cpi));
+                            NetUtil.get(src + "&_=" + System.currentTimeMillis()).toTextResponse().getBody().contains("success");
+                        } catch (Exception ignored) {
+                        }
+                    });
+            if (Optional.ofNullable(titleDocument.getElementById("mainid")).map(Element::html).map(s -> s.contains("showChapterVerificationCode")).orElse(false))
+                throw new CheckCodeException(ApiURL.CHAPTER_CHECK_CODE_IMG.buildURL(NetUtil.getOriginal(taskOrExamURL), body.get("cpi")));
+            taskDocument = NetUtil.get(ApiURL.TASK_INFO.buildURL(NetUtil.getOriginal(taskOrExamURL),
+                    body.get("clazzid"),
+                    body.get("courseId"),
+                    body.get("chapterId"),
+                    body.get("cpi"),
+                    infoType.getId()
+            ), 0).toResponse(RESPONSE_HANDLER).getBody();
+            if (Optional.ofNullable(taskDocument.getElementById("openlock")).isPresent() && titleDocument.getElementById("cardcount").val().equals("1"))
+                if (NetUtil.get(ApiURL.CHAPTER_LOCK_OPEN.buildURL(NetUtil.getOriginal(taskOrExamURL),
+                        body.get("clazzid"),
+                        body.get("courseId"),
+                        body.get("chapterId"))).toTextResponse().getBody().contains("true")) {
+                    isLocked = true;
+                    body.put("knowledgestr", Optional.ofNullable(taskDocument.getElementById("knowledgestr")).map(Element::val).orElse(""));
+                    /*
+                    previous: 0 next: 1
+                     */
+                    body.put("type", "1");
+                    body.put("date", ZonedDateTime.now().format(DateTimeFormatter.ofPattern("EEE MMM dd uuuu HH:mm:ss 'GMT'Z (中国标准时间)", Locale.ENGLISH)));
+                    titleDocument = NetUtil.post(ApiURL.CHAPTER_CHANGE.buildURL(NetUtil.getOriginal(taskOrExamURL)), body, 0).toResponse(RESPONSE_HANDLER).getBody();
+                }
+        } while (isLocked);
+        String jsonStr = StringUtil.subStringBetweenFirst(StringUtil.subStringAfterFirst(taskDocument.html(), "try{"), "mArg = ", ";");
         try {
             switch (infoType) {
                 case PLAYER:
@@ -196,17 +249,36 @@ public class CXUtil {
         }
     }
 
-    public static VideoInfo getVideoInfo(String chapterURL, String objectId, String fid) throws CheckCodeException {
+    public static VideoInfo getVideoInfo(String taskURL, String objectId, String fid) throws CheckCodeException {
         return NetUtil.get(ApiURL.VIDEO_INFO.buildURL(
-                NetUtil.getOriginal(chapterURL),
+                NetUtil.getOriginal(taskURL),
                 objectId,
                 fid,
-                String.valueOf(System.currentTimeMillis())
+                System.currentTimeMillis()
         ), 0).toJsonResponse(VideoInfo.class).getBody();
     }
 
-    public static void refreshMenu(String chapterURL, String clazzId, String courseId, String chapterId) throws CheckCodeException {
-        NetUtil.get(ApiURL.LIST_INFO.buildURL(NetUtil.getOriginal(chapterURL),
+    public static ReadInfo getReadInfo(String taskURL, String clazzId, String courseId, String knowledgeId, String jobId, String enc, String utEnc) throws CheckCodeException {
+        ReadInfo readInfo = new ReadInfo();
+        Document document = NetUtil.get(ApiURL.READ_INFO.buildURL(NetUtil.getOriginal(taskURL),
+                clazzId,
+                courseId,
+                knowledgeId,
+                jobId,
+                enc,
+                utEnc)).toResponse(RESPONSE_HANDLER).getBody();
+        String times = document.select("div.content p").text();
+        Matcher matcher = Pattern.compile("[\\d.]+").matcher(times);
+        if (matcher.find())
+            readInfo.setDuration((int) (Float.parseFloat(matcher.group()) * 60));
+        if (matcher.find())
+            readInfo.setHeadOffset((int) (Float.parseFloat(matcher.group()) * 60));
+        readInfo.setFrom(StringUtil.subStringBetweenFirst(document.select("script").html().replaceAll("\\s", ""), "from=\"", "\";"));
+        return readInfo;
+    }
+
+    public static void getListInfo(String taskURL, String clazzId, String courseId, String chapterId) throws CheckCodeException {
+        NetUtil.get(ApiURL.LIST_INFO.buildURL(NetUtil.getOriginal(taskURL),
                 clazzId,
                 courseId,
                 chapterId
@@ -216,16 +288,16 @@ public class CXUtil {
     /**
      * onCheckCode since player loaded
      *
-     * @param chapterURL
+     * @param taskURL
      * @return
      * @throws CheckCodeException
      */
-    public static boolean startPlayer(String chapterURL) throws CheckCodeException {
-        final Map<String, String> params = NetUtil.getQueries(chapterURL).stream().collect(Collectors.toMap(Parameter::getName, Parameter::getValue));
-        return NetUtil.get(ApiURL.PLAY_VALIDATE.buildURL(NetUtil.getOriginal(chapterURL), params.get("courseId"), params.get("clazzid"), params.get("chapterId"))).toTextResponse().getBody().contains("true");
+    public static boolean startPlayer(String taskURL) throws CheckCodeException {
+        final Map<String, String> params = NetUtil.getQueries(taskURL).stream().collect(Collectors.toMap(Parameter::getName, Parameter::getValue));
+        return NetUtil.get(ApiURL.PLAYER_VALIDATE.buildURL(NetUtil.getOriginal(taskURL), params.get("clazzid"), params.get("courseId"), params.get("chapterId"))).toTextResponse().getBody().contains("true");
     }
 
-    public static boolean startExam(String examURL, TaskInfo<ExamTaskData> taskInfo, ExamTaskData attachment) throws CheckCodeException {
+    public static boolean startExam(String examURL, TaskInfo<ExamTaskData> taskInfo, ExamTaskData attachment) throws CheckCodeException, ExamStateException {
         try {
             JSONObject result = NetUtil.get(ApiURL.EXAM_VALIDATE.buildURL(NetUtil.getOriginal(examURL),
                     taskInfo.getDefaults().getClazzId(),
@@ -237,44 +309,86 @@ public class CXUtil {
             )).toJsonResponse(JSONObject.class).getBody();
             switch (result.getIntValue("status")) {
                 case 0:
-                    IOUtil.println("Exam need finishStandard: " + attachment.getProperty().getTitle() + "[" + result.getIntValue("finishStandard") + "%]");
-                    break;
+                    throw new ExamStateException(result.getIntValue("finishStandard"));
                 case 1:
-                    return true;
-                case 2:
                     throw new CheckCodeException(ApiURL.EXAM_CHECK_CODE_IMG.buildURL(NetUtil.getOriginal(examURL)));
+                case 2:
+                    return true;
             }
         } catch (JSONException ignored) {
         }
         return false;
     }
 
+    public static ReadCardInfo onReadStart(TaskInfo<ReadTaskData> taskInfo, ReadTaskData attachment, ReadInfo readInfo) throws CheckCodeException {
+        try {
+            JSON.parseObject(NetUtil.get(ApiURL.READ_VALIDATE.buildURL(NetUtil.getOriginal(taskInfo.getDefaults().getInitdataUrl()),
+                    taskInfo.getDefaults().getClazzId(),
+                    taskInfo.getDefaults().getCourseid(),
+                    taskInfo.getDefaults().getKnowledgeid(),
+                    attachment.getProperty().getJobid(),
+                    attachment.getJtoken(),
+                    System.currentTimeMillis())).toTextResponse().getBody()).getBooleanValue("status");
+        } catch (JSONException ignored) {
+        }
+        Document document = NetUtil.get(ApiURL.READ_OPEN.buildURL(NetUtil.getOriginal(taskInfo.getDefaults().getInitdataUrl()),
+                attachment.getProperty().getId(),
+                readInfo.getFrom())).toResponse(RESPONSE_HANDLER).getBody();
+        int height = (int) (document.getElementById("courseMainBox").getElementsByAttribute("height").eachAttr("height").stream()
+                        .map(value -> value.replaceAll("[^-\\d.]", ""))
+                        .mapToDouble(Double::parseDouble)
+                        .sum() + 15 + 1 + 20);
+        String nextKnowledgeId = StringUtil.subStringBetweenFirst(document.select("script").html().replaceAll("\\s", ""),
+                "ctid=", ";");
+        return new ReadCardInfo(nextKnowledgeId, 0, height, nextKnowledgeId);
+    }
+
+    public static ReadCardInfo getReadCard(String taskURL, ReadInfo readInfo, ReadCardInfo readCardInfo) throws CheckCodeException {
+        Document document = NetUtil.get(ApiURL.READ_CARD.buildURL(NetUtil.getOriginal(taskURL),
+                readInfo.getCourseId(),
+                readCardInfo.getNextKnowledgeId(),
+                readInfo.getFrom())).toResponse(RESPONSE_HANDLER).getBody();
+        int height = document.wholeText().getBytes().length / 90;
+        String nextKnowledgeId = StringUtil.subStringBetweenFirst(document.getElementById("loadbutton").attr("onclick"),
+                "(", ")");
+        return new ReadCardInfo(readCardInfo.getNextKnowledgeId(), readCardInfo.getStart() + readCardInfo.getHeight(), height, nextKnowledgeId);
+    }
+
+    public static void onReadProgress(String taskURL, ReadInfo readInfo, ReadCardInfo readCardInfo,int height) throws CheckCodeException {
+        JSON.parseObject(NetUtil.get(ApiURL.READ_PROCESS.buildURL(NetUtil.getOriginal(taskURL),
+                readInfo.getCourseId(),
+                readCardInfo.getKnowledgeId(),
+                readInfo.getFrom(),
+                readInfo.getHeight(),
+                height)).toTextResponse().getBody());
+    }
+
     /**
-     * onCheckCode since player loaded first
+     * onCheckCode since video loaded first
      *
      * @param taskInfo
      * @param videoInfo
      * @return
      * @throws CheckCodeException
      */
-    public static boolean onStart(TaskInfo<PlayerTaskData> taskInfo, PlayerTaskData attachment, VideoInfo videoInfo) throws CheckCodeException {
-        return sendLog(taskInfo, attachment, videoInfo, (int) (attachment.getHeadOffset() / 1000), 0);
+    public static boolean onVideoStart(TaskInfo<PlayerTaskData> taskInfo, PlayerTaskData attachment, VideoInfo videoInfo) throws CheckCodeException {
+        return sendVideoLog(taskInfo, attachment, videoInfo, (int) (attachment.getHeadOffset() / 1000), 0);
     }
 
     /**
-     * onCheckCode since player finished
+     * onCheckCode since video finished
      *
      * @param taskInfo
      * @param videoInfo
      * @return
      * @throws CheckCodeException
      */
-    public static boolean onEnd(TaskInfo taskInfo, PlayerTaskData attachment, VideoInfo videoInfo) throws CheckCodeException {
-        return sendLog(taskInfo, attachment, videoInfo, videoInfo.getDuration(), 4);
+    public static boolean onVideoEnd(TaskInfo taskInfo, PlayerTaskData attachment, VideoInfo videoInfo) throws CheckCodeException {
+        return sendVideoLog(taskInfo, attachment, videoInfo, videoInfo.getDuration(), 4);
     }
 
     /**
-     * onCheckCode since player clicked to play
+     * onCheckCode since video clicked to play
      *
      * @param taskInfo
      * @param videoInfo
@@ -282,12 +396,12 @@ public class CXUtil {
      * @return
      * @throws CheckCodeException
      */
-    public static boolean onPlay(TaskInfo taskInfo, PlayerTaskData attachment, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
-        return sendLog(taskInfo, attachment, videoInfo, playSecond, 0);
+    public static boolean onVideoPlay(TaskInfo taskInfo, PlayerTaskData attachment, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
+        return sendVideoLog(taskInfo, attachment, videoInfo, playSecond, 0);
     }
 
     /**
-     * onCheckCode since player clicked to pause
+     * onCheckCode since video clicked to pause
      *
      * @param taskInfo
      * @param videoInfo
@@ -295,14 +409,14 @@ public class CXUtil {
      * @return
      * @throws CheckCodeException
      */
-    public static boolean onPause(TaskInfo taskInfo, PlayerTaskData attachment, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
+    public static boolean onVideoPause(TaskInfo taskInfo, PlayerTaskData attachment, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
         if (!Optional.ofNullable(taskInfo.getDefaults().getChapterId()).orElse("").isEmpty())
-            return sendLog(taskInfo, attachment, videoInfo, playSecond, 0);
+            return sendVideoLog(taskInfo, attachment, videoInfo, playSecond, 0);
         return false;
     }
 
     /**
-     * onCheckCode each intervalTime since player playing
+     * onCheckCode each intervalTime since video playing
      *
      * @param taskInfo
      * @param videoInfo
@@ -310,8 +424,8 @@ public class CXUtil {
      * @return
      * @throws CheckCodeException
      */
-    public static boolean onPlayProgress(TaskInfo taskInfo, PlayerTaskData attachment, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
-        return sendLog(taskInfo, attachment, videoInfo, playSecond, 0);
+    public static boolean onVideoProgress(TaskInfo taskInfo, PlayerTaskData attachment, VideoInfo videoInfo, int playSecond) throws CheckCodeException {
+        return sendVideoLog(taskInfo, attachment, videoInfo, playSecond, 0);
     }
 
     /**
@@ -322,9 +436,9 @@ public class CXUtil {
      * @return
      * @throws CheckCodeException
      */
-    public static List<QuizInfo<PlayerQuizData, Void>> getPlayerQuizzes(String initDataUrl, String mid) throws CheckCodeException {
-        Response<String> response = NetUtil.get(initDataUrl + "?start=undefined&mid=" + mid, 0).toTextResponse();
-        List<QuizInfo<PlayerQuizData, Void>> quizInfoList = JSON.parseArray(response.getBody()).toJavaObject(PLAYER_QUIZ_INFO_TYPE);
+    public static List<QuizInfo<VideoQuizData, Void>> getVideoQuizzes(String initDataUrl, String mid) throws CheckCodeException {
+        Response<String> response = NetUtil.get(ApiURL.VIDEO_QUIZ.buildURL(initDataUrl, mid), 0).toTextResponse();
+        List<QuizInfo<VideoQuizData, Void>> quizInfoList = JSON.parseArray(response.getBody()).toJavaObject(PLAYER_QUIZ_INFO_TYPE);
         final String baseURL = NetUtil.getOriginal(response.getURL());
         quizInfoList.stream()
                 .map(QuizInfo::getDatas)
@@ -333,8 +447,8 @@ public class CXUtil {
         return quizInfoList;
     }
 
-    public static QuizInfo<HomeworkQuizData, HomeworkQuizConfig> getHomeworkQuiz(String chapterURL, TaskInfo<HomeworkTaskData> taskInfo, HomeworkTaskData attachment) throws CheckCodeException {
-        Document document = NetUtil.get(ApiURL.HOMEWORK_QUIZ.buildURL(NetUtil.getOriginal(chapterURL),
+    public static QuizInfo<HomeworkQuizData, HomeworkQuizConfig> getHomeworkQuiz(String taskURL, TaskInfo<HomeworkTaskData> taskInfo, HomeworkTaskData attachment) throws CheckCodeException {
+        Document document = NetUtil.get(ApiURL.HOMEWORK_QUIZ.buildURL(NetUtil.getOriginal(taskURL),
                 taskInfo.getDefaults().getClazzId(),
                 taskInfo.getDefaults().getCourseid(),
                 taskInfo.getDefaults().getKnowledgeid(),
@@ -368,7 +482,7 @@ public class CXUtil {
             homeworkQuizInfo.getDefaults().setOldWorkId(element.getElementById("oldWorkId").val());
             homeworkQuizInfo.getDefaults().setOldSchoolId(element.getElementById("oldSchoolId").val());
             homeworkQuizInfo.getDefaults().setKnowledgeid(element.getElementById("knowledgeid").val());
-            homeworkQuizInfo.getDefaults().setAnswerwqbid(StringUtil.subStringBetweenLast(StringUtil.subStringBeforeFirst(document.wholeText(), "$(\"#answerwqbid\")"), "= \"", "\""));
+            homeworkQuizInfo.getDefaults().setAnswerwqbid(StringUtil.subStringBetweenLast(StringUtil.subStringBeforeFirst(document.html(), "$(\"#answerwqbid\")"), "= \"", "\""));
             homeworkQuizInfo.getDefaults().setWorkAnswerId(element.getElementById("workAnswerId").val());
             homeworkQuizInfo.getDefaults().setWorkRelationId(element.getElementById("workRelationId").val());
             homeworkQuizInfo.getDefaults().setApi(element.getElementById("api").val());
@@ -435,9 +549,10 @@ public class CXUtil {
                 examQuizInfo.getDefaults().getTestUserRelationId(),
                 examQuizInfo.getDefaults().getExamsystem(),
                 examQuizInfo.getDefaults().getEnc(),
-                String.valueOf(examQuizInfo.getDefaults().getStart()),
-                String.valueOf(examQuizInfo.getDefaults().getRemainTime()),
-                String.valueOf(examQuizInfo.getDefaults().getEncLastUpdateTime())
+                examQuizInfo.getDefaults().getStart(),
+                examQuizInfo.getDefaults().getRemainTime(),
+                examQuizInfo.getDefaults().getEncLastUpdateTime(),
+                examQuizInfo.getDefaults().getCpi()
         ), 0).toResponse(RESPONSE_HANDLER).getBody();
         Element form = document.selectFirst("form#submitTest");
         if (!Optional.ofNullable(examQuizInfo.getDatas()).isPresent())
@@ -489,9 +604,9 @@ public class CXUtil {
         return examQuizInfo;
     }
 
-    public static boolean storeHomeworkQuiz(String chapterURL, HomeworkQuizConfig defaults, Map<HomeworkQuizData, List<OptionInfo>> answers) throws CheckCodeException, WrongAccountException {
+    public static boolean storeHomeworkQuiz(String taskURL, HomeworkQuizConfig defaults, Map<HomeworkQuizData, List<OptionInfo>> answers) throws CheckCodeException, WrongAccountException {
         defaults.setPyFlag("1");
-        return answerHomeworkQuiz(chapterURL, defaults, answers);
+        return answerHomeworkQuiz(taskURL, defaults, answers);
     }
 
     public static boolean storeExamQuiz(ExamQuizConfig defaults, Map<ExamQuizData, List<OptionInfo>> answers) throws CheckCodeException {
@@ -499,8 +614,8 @@ public class CXUtil {
         return answerExamQuiz(defaults, answers);
     }
 
-    public static boolean answerPlayerQuiz(String validationUrl, String resourceId, String answer) throws CheckCodeException {
-        JSONObject jsonObject = NetUtil.get(validationUrl + "?resourceid=" + resourceId + "&answer='" + answer + "'", 0).toJsonResponse(JSONObject.class).getBody();
+    public static boolean answerVideoQuiz(String validationUrl, String resourceId, String answer) throws CheckCodeException {
+        JSONObject jsonObject = NetUtil.get(ApiURL.VIDEO_ANSWER.buildURL(validationUrl, resourceId, "'" + answer + "'"), 0).toJsonResponse(JSONObject.class).getBody();
         return jsonObject.getString("answer").equals(answer) && jsonObject.getBoolean("isRight");
     }
 
@@ -588,7 +703,7 @@ public class CXUtil {
      * return __e()
      * };
      */
-    public static boolean answerHomeworkQuiz(String chapterURL, HomeworkQuizConfig defaults, Map<HomeworkQuizData, List<OptionInfo>> answers) throws CheckCodeException, WrongAccountException {
+    public static boolean answerHomeworkQuiz(String taskURL, HomeworkQuizConfig defaults, Map<HomeworkQuizData, List<OptionInfo>> answers) throws CheckCodeException, WrongAccountException {
         HomeworkQuizData first = null;
         Iterator<HomeworkQuizData> iterator = answers.keySet().iterator();
         if (iterator.hasNext())
@@ -596,16 +711,16 @@ public class CXUtil {
         if (!Optional.ofNullable(first).isPresent())
             return false;
         if (Optional.ofNullable(defaults.getEnc()).orElse("").isEmpty()) {
-            JSONObject jsonObject = NetUtil.get(ApiURL.HOMEWORK_VALIDATE.buildURL(NetUtil.getOriginal(chapterURL),
+            JSONObject jsonObject = NetUtil.get(ApiURL.HOMEWORK_VALIDATE.buildURL(NetUtil.getOriginal(taskURL),
                     defaults.getClassId(),
                     defaults.getCourseId(),
-                    String.valueOf(System.currentTimeMillis())
+                    System.currentTimeMillis()
             ), 0).toJsonResponse(JSONObject.class).getBody();
             switch (jsonObject.getIntValue("status")) {
                 case 1:
                     throw new WrongAccountException();
                 case 2:
-                    throw new CheckCodeException(ApiURL.HOMEWORK_CHECK_CODE_IMG.buildURL(NetUtil.getOriginal(chapterURL)));
+                    throw new CheckCodeException(ApiURL.HOMEWORK_CHECK_CODE_IMG.buildURL(NetUtil.getOriginal(taskURL)));
                 case 3:
                     break;
                 default:
@@ -616,7 +731,6 @@ public class CXUtil {
         Matcher matcher = Pattern.compile("version=(\\d)").matcher(first.getValidationUrl());
         if (matcher.find())
             version += Integer.valueOf(matcher.group(1));
-        String paramStr = "ua=pc&fromType=post&saveStatus=1&version=" + version;
         //region skip when store
 //        if (!homeworkQuizInfo.getPyFlag().equals("1")) {
         int pageWidth = 898;
@@ -648,7 +762,6 @@ public class CXUtil {
             n = (multiplier * n + uwIdLength) % Integer.MAX_VALUE;
         }
         pos.append(String.format("%08x", randomMillion));
-        paramStr += "&pos=" + pos + "&rd=" + random + "&value=" + value + "&wid=" + defaults.getWorkRelationId();
 //        }
         //endregion
         Map<String, String> body = new IdentityHashMap<>();
@@ -682,7 +795,13 @@ public class CXUtil {
             if (!Optional.ofNullable(homeworkQuizData.getAnswerTypeId()).orElse("").isEmpty())
                 body.put(homeworkQuizData.getAnswerTypeId(), homeworkQuizData.getQuestionType());
         });
-        Response<String> response = NetUtil.post(first.getValidationUrl() + "?" + paramStr, body, 0).toTextResponse();
+        Response<String> response = NetUtil.post(ApiURL.HOMEWORK_ANSWER.buildURL(first.getValidationUrl(),
+                version,
+                pos,
+                random,
+                value,
+                defaults.getWorkRelationId()
+        ), body, 0).toTextResponse();
         if (response.getStatusCode() != StatusCodes.OK)
             return false;
         return !response.getBody().contains("提交失败") && !response.getBody().contains("false");
@@ -788,7 +907,6 @@ public class CXUtil {
         Matcher matcher = Pattern.compile("version=(\\d)").matcher(first.getValidationUrl());
         if (matcher.find())
             version += Integer.valueOf(matcher.group(1));
-        String paramStr = "tempSave=" + (defaults.isTempSave() ? "true" : "false") + "&version=" + version;
         int pageWidth = 898;
         int pageHeight = 687;
         String value = "(" + pageWidth + "|" + pageHeight + ")";
@@ -818,7 +936,6 @@ public class CXUtil {
             n = (multiplier * n + uwIdLength) % Integer.MAX_VALUE;
         }
         pos.append(String.format("%08x", randomMillion));
-        paramStr += "&pos=" + pos.toString() + "&rd=" + random + "&value=" + value + "&qid=" + first.getQuestionId();
         HashMap<String, String> body = new HashMap<>();
         body.put("userId", defaults.getUserId());
         body.put("classId", defaults.getClassId());
@@ -827,6 +944,7 @@ public class CXUtil {
         body.put("testUserRelationId", defaults.getTestUserRelationId());
         body.put("examsystem", defaults.getExamsystem());
         body.put("enc", defaults.getEnc());
+        body.put("cpi", defaults.getCpi());
         body.put("tempSave", defaults.isTempSave() ? "true" : "false");
         body.put("timeOver", defaults.isTimeOver() ? "true" : "false");
         body.put("remainTime", String.valueOf(defaults.getRemainTime()));
@@ -856,17 +974,34 @@ public class CXUtil {
                     .map(OptionInfo::getName)
                     .forEach(name -> body.put(new String(("answer" + body.get("questionId")).getBytes()), name));
         }
-        String responseStr = NetUtil.post(first.getValidationUrl() + "?" + paramStr, body, 0).toTextResponse().getBody();
+        String responseStr = NetUtil.post(ApiURL.EXAM_ANSWER.buildURL(first.getValidationUrl(),
+                defaults.isTempSave() ? "true" : "false",
+                version,
+                pos.toString(),
+                random,
+                value,
+                first.getQuestionId()), body, 0).toTextResponse().getBody();
         if (!defaults.isTempSave())
-            return responseStr.equals("1");
-        String[] results = responseStr.split("\\|");
-        if (results.length != 3)
-            return false;
-        defaults.setEncLastUpdateTime(Long.parseLong(results[0]));
-        defaults.setRemainTime(Integer.parseInt(results[1]));
-        defaults.setEncRemainTime(defaults.getRemainTime());
-        defaults.setEnc(results[2]);
-        return true;
+            return responseStr.contains("success");
+        try {
+            String[] results = Optional.ofNullable(JSON.parseObject(responseStr).getString("data")).orElse(responseStr).split("\\|");
+            if (results.length != 3)
+                return false;
+            defaults.setEncLastUpdateTime(Long.parseLong(results[0]));
+            defaults.setRemainTime(Integer.parseInt(results[1]));
+            defaults.setEncRemainTime(defaults.getRemainTime());
+            defaults.setEnc(results[2]);
+            return true;
+        } catch (JSONException ignored) {
+        }
+        return false;
+    }
+
+    public static List<OptionInfo> getQuizAnswer(QuizData quizData) {
+        List<OptionInfo> options = new ArrayList<>(getAnswersFrom3GMFW(quizData));
+        if (options.isEmpty())
+            options.addAll(getAnswersFromTensorFlow(quizData));
+        return options;
     }
 
     /**
@@ -875,7 +1010,7 @@ public class CXUtil {
      * @param quizData
      * @return
      */
-    public static List<OptionInfo> getQuizAnswer(QuizData quizData) {
+    private static List<OptionInfo> getAnswersFrom3GMFW(QuizData quizData) {
         List<OptionInfo> options = new ArrayList<>();
         String[] descriptions = quizData.getDescription().replaceAll("【.*?】", "").split("[\\pP\\pS\\pZ]");
         StringBuilder stringBuilder = new StringBuilder();
@@ -886,7 +1021,7 @@ public class CXUtil {
             circumvent protection
              */
             while (true) {
-                document = NetUtil.get(ApiURL.ANSWER_QUIZ.buildURL(stringBuilder.toString())).charset("gbk").toResponse(RESPONSE_HANDLER).getBody();
+                document = NetUtil.get(ApiURL.ANSWER_QUIZ_3GMFW_ABS.buildURL(stringBuilder.toString())).toResponse(RESPONSE_HANDLER).getBody();
                 Element form = document.selectFirst("form#challenge-form");
                 if (!Optional.ofNullable(form).isPresent())
                     break;
@@ -917,51 +1052,103 @@ public class CXUtil {
                     break;
                 }
             }
-            Element div = document.selectFirst("div.searchTopic");
-            if (!Optional.ofNullable(div).isPresent())
-                return options;
-            document = NetUtil.get(div.selectFirst("a").absUrl("href")).charset("gbk").toResponse(RESPONSE_HANDLER).getBody();
-            Elements p = document.select("div.content p");
-            Map<String, String> answers = new HashMap<>();
-            p.stream()
-                    .map(Element::textNodes)
-                    .flatMap(Collection::stream)
-                    .filter(textNode -> !textNode.isBlank())
-                    .map(TextNode::text)
-                    .forEach(text -> {
-                        if (!text.trim().contains("答案：")) {
-                            Matcher matcher = Pattern.compile("[a-zA-Z]").matcher(text);
-                            if (matcher.find())
-                                answers.put(matcher.group(), text.trim());
-                        } else
-                            p.last().text(text);
-                    });
-            String rightAnswerStr = p.last().text();
-            if (rightAnswerStr.contains("答案："))
-                rightAnswerStr = rightAnswerStr.substring(rightAnswerStr.indexOf("答案：") + "答案：".length()).trim();
-            if (rightAnswerStr.matches("(?i)[√✓✔对是]|正确|T(RUE)?|Y(ES)?|RIGHT|CORRECT"))
-                rightAnswerStr = "true";
-            else if (rightAnswerStr.matches("(?i)[X×✖错否]|错误|F(ALSE)?|N(O)?|WRONG|INCORRECT"))
-                rightAnswerStr = "false";
-            else {
-                rightAnswerStr.replaceAll("\\s", "").chars()
-                        .mapToObj(i -> Character.toString((char) i))
-                        .forEach(answers::remove);
-                for (OptionInfo option : quizData.getOptions()) {
-                    if (answers.values().stream().anyMatch(description -> description.contains(option.getDescription()))) {
-                        options.add(new OptionInfo(option));
-                        if (!quizData.getQuestionType().equals("1"))
-                            break;
+            Optional.ofNullable(document.selectFirst("div.searchTopic")).ifPresent(div -> {
+                try {
+                    Elements p = NetUtil.get(div.selectFirst("a").absUrl("href")).toResponse(RESPONSE_HANDLER.setDefaultCharset("gbk")).getBody().select("div.content p");
+                    Map<String, String> answers = new HashMap<>();
+                    p.stream()
+                            .map(Element::textNodes)
+                            .flatMap(Collection::stream)
+                            .filter(textNode -> !textNode.isBlank())
+                            .map(TextNode::text)
+                            .forEach(text -> {
+                                if (!text.trim().contains("答案：")) {
+                                    Matcher matcher = Pattern.compile("[a-zA-Z]").matcher(text);
+                                    if (matcher.find())
+                                        answers.put(matcher.group(), text.trim());
+                                } else
+                                    p.last().text(text);
+                            });
+                    String rightAnswerStr = p.last().text();
+                    if (rightAnswerStr.contains("答案："))
+                        rightAnswerStr = rightAnswerStr.substring(rightAnswerStr.indexOf("答案：") + "答案：".length()).trim();
+                    if (rightAnswerStr.matches("(?i)[√✓✔对是]|正确|T(RUE)?|Y(ES)?|RIGHT|CORRECT"))
+                        rightAnswerStr = "true";
+                    else if (rightAnswerStr.matches("(?i)[X×✖错否]|错误|F(ALSE)?|N(O)?|WRONG|INCORRECT"))
+                        rightAnswerStr = "false";
+                    else {
+                        List<String> rightAnswerValues = rightAnswerStr.replaceAll("\\s", "").chars()
+                                .mapToObj(i -> Character.toString((char) i))
+                                .map(answers::get)
+                                .filter(Objects::nonNull)
+                                .collect(Collectors.toList());
+                        for (OptionInfo option : quizData.getOptions()) {
+                            if (rightAnswerValues.stream().anyMatch(rightValue -> rightValue.contains(option.getDescription()))) {
+                                options.add(new OptionInfo(option));
+                                if (!quizData.getQuestionType().equals("1"))
+                                    break;
+                            }
+                        }
                     }
+                    if (options.isEmpty())
+                        for (OptionInfo option : quizData.getOptions())
+                            if (rightAnswerStr.equalsIgnoreCase(option.getName())) {
+                                options.add(new OptionInfo(option));
+                                break;
+                            }
+                } catch (CheckCodeException ignored) {
+                }
+            });
+        } catch (CheckCodeException ignored) {
+        }
+        return options;
+    }
+
+    /**
+     * Thanks to api.tensor-flow.club for database support
+     *
+     * @param quizData
+     * @return
+     */
+    private static List<OptionInfo> getAnswersFromTensorFlow(QuizData quizData) {
+        List<OptionInfo> options = new ArrayList<>();
+        try {
+            String responseStr;
+            while (true) {
+                responseStr = NetUtil.get(ApiURL.ANSWER_QUIZ_TF_ABS.buildURL(StringUtil.subStringBeforeFirst(quizData.getDescription().replaceAll("【.*?】", "").trim(), "%"))).toTextResponse().getBody();
+                if (!responseStr.contains("try again later"))
+                    break;
+                try {
+                    Thread.sleep(4 * 1000);
+                } catch (Exception e) {
+                    break;
                 }
             }
-            if (options.isEmpty())
-                for (OptionInfo option : quizData.getOptions())
-                    if (rightAnswerStr.equalsIgnoreCase(option.getName())) {
-                        options.add(new OptionInfo(option));
-                        break;
+            JSONArray jsonArray = JSON.parseArray(responseStr);
+            if (!jsonArray.isEmpty()) {
+                String rightAnswerStr = jsonArray.getJSONObject(0).getString("answer").trim();
+                if (rightAnswerStr.matches("(?i)[√✓✔对是]|正确|T(RUE)?|Y(ES)?|RIGHT|CORRECT"))
+                    rightAnswerStr = "true";
+                else if (rightAnswerStr.matches("(?i)[X×✖错否]|错误|F(ALSE)?|N(O)?|WRONG|INCORRECT"))
+                    rightAnswerStr = "false";
+                else {
+                    List<String> rightAnswerValues = Arrays.asList(rightAnswerStr.split("[#\\s]"));
+                    for (OptionInfo option : quizData.getOptions()) {
+                        if (rightAnswerValues.stream().anyMatch(rightValue -> rightValue.contains(option.getDescription()))) {
+                            options.add(new OptionInfo(option));
+                            if (!quizData.getQuestionType().equals("1"))
+                                break;
+                        }
                     }
-        } catch (CheckCodeException ignored) {
+                }
+                if (options.isEmpty())
+                    for (OptionInfo option : quizData.getOptions())
+                        if (rightAnswerStr.equalsIgnoreCase(option.getName())) {
+                            options.add(new OptionInfo(option));
+                            break;
+                        }
+            }
+        } catch (CheckCodeException | JSONException ignored) {
         }
         return options;
     }
@@ -1069,7 +1256,7 @@ public class CXUtil {
      * }
      * }
      */
-    private static boolean sendLog(TaskInfo taskInfo, PlayerTaskData attachment, VideoInfo videoInfo, int playSecond, int dragStatus) throws CheckCodeException {
+    private static boolean sendVideoLog(TaskInfo taskInfo, PlayerTaskData attachment, VideoInfo videoInfo, int playSecond, int dragStatus) throws CheckCodeException {
         if (taskInfo.getAttachments().length == 0)
             return false;
         MessageDigest md5;
@@ -1087,20 +1274,19 @@ public class CXUtil {
         if (Optional.ofNullable(videoInfo.getDtoken()).isPresent())
             url += "/" + videoInfo.getDtoken();
         NetUtil.addCookie(new Cookie(NetUtil.getHost(taskInfo.getDefaults().getReportUrl()), "/", "videojs_id", String.valueOf(attachment.getVideoJSId()), -1, false, true));
-        return NetUtil.get(url +
-                "?&clazzId=" + taskInfo.getDefaults().getClazzId() +
-                "&objectId=" + videoInfo.getObjectid() +
-                "&userid=" + taskInfo.getDefaults().getUserid() +
-                "&jobid=" + attachment.getJobid() +
-                "&otherInfo=" + attachment.getOtherInfo() +
-                "&playingTime=" + playSecond +
-                "&isdrag=" + dragStatus +
-                "&duration=" + videoInfo.getDuration() +
-                "&clipTime=" + clipTime +
-                "&dtype=" + attachment.getType() +
-                "&rt=" + (videoInfo.getRt() != 0.0f ? videoInfo.getRt() : 0.9f) +
-                "&enc=" + md5Str +
-                "&_t=" + System.currentTimeMillis() +
-                "&view=pc", 0).toJsonResponse(JSONObject.class).getBody().getBoolean("isPassed");
+        return NetUtil.get(ApiURL.VIDEO_PROCESS.buildURL(url,
+                taskInfo.getDefaults().getClazzId(),
+                videoInfo.getObjectid(),
+                taskInfo.getDefaults().getUserid(),
+                attachment.getJobid(),
+                attachment.getOtherInfo(),
+                playSecond,
+                dragStatus,
+                videoInfo.getDuration(),
+                clipTime,
+                attachment.getType(),
+                (videoInfo.getRt() != 0.0f ? videoInfo.getRt() : 0.9f),
+                md5Str,
+                System.currentTimeMillis()), 0).toJsonResponse(JSONObject.class).getBody().getBoolean("isPassed");
     }
 }

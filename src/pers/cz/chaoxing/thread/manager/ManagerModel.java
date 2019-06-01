@@ -1,16 +1,19 @@
 package pers.cz.chaoxing.thread.manager;
 
+import net.dongliu.requests.exception.RequestsException;
+import pers.cz.chaoxing.callback.PauseCallBack;
 import pers.cz.chaoxing.common.control.Control;
 import pers.cz.chaoxing.thread.LimitedBlockingQueue;
-import pers.cz.chaoxing.callback.PauseCallBack;
 import pers.cz.chaoxing.thread.PauseThreadPoolExecutor;
 import pers.cz.chaoxing.util.io.IOUtil;
 import pers.cz.chaoxing.util.io.StringUtil;
-import net.dongliu.requests.exception.RequestsException;
 
 import java.io.Closeable;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.LongStream;
 
 /**
@@ -41,8 +44,7 @@ public abstract class ManagerModel implements PauseCallBack, Runnable, Closeable
             try {
                 doJob();
             } catch (RequestsException e) {
-                String message = StringUtil.subStringAfterFirst(e.getLocalizedMessage(), ":").trim();
-                IOUtil.println("Net connection error: " + message);
+                IOUtil.println("exception_network", StringUtil.subStringAfterFirst(e.getLocalizedMessage(), ":").trim());
             } catch (RejectedExecutionException | InterruptedException e) {
                 if (!threadPool.isShutdown())
                     threadPool.shutdownNow();

@@ -1,15 +1,16 @@
 package pers.cz.chaoxing.callback.checkcode.impl;
 
 import net.dongliu.requests.Response;
-import pers.cz.chaoxing.exception.CheckCodeException;
-import pers.cz.chaoxing.util.net.NetUtil;
 import net.dongliu.requests.StatusCodes;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import pers.cz.chaoxing.callback.checkcode.CheckCodeCallBack;
+import pers.cz.chaoxing.exception.CheckCodeException;
 import pers.cz.chaoxing.util.CXUtil;
 import pers.cz.chaoxing.util.io.IOUtil;
 import pers.cz.chaoxing.util.io.StringUtil;
+import pers.cz.chaoxing.util.net.ApiURL;
+import pers.cz.chaoxing.util.net.NetUtil;
 
 import java.nio.file.Paths;
 
@@ -29,8 +30,8 @@ public class CustomCheckCodeJob extends CheckCodeJobModel implements CheckCodeCa
                     if (!receiveCheckCode(checkCodePath))
                         break;
                     if (!readCheckCode(checkCodePath))
-                        IOUtil.println("CheckCode image path: " + checkCodePath);
-                } while (!sendCheckCode(IOUtil.printAndNext("Input checkCode:")));
+                        IOUtil.println("check_code_image_path", checkCodePath);
+                } while (!sendCheckCode(IOUtil.printAndNext("input_check_code")));
             } finally {
                 lock.writeLock().unlock();
             }
@@ -64,7 +65,7 @@ public class CustomCheckCodeJob extends CheckCodeJobModel implements CheckCodeCa
     @Override
     protected Boolean sendCheckCode(String checkCode) {
         try {
-            NetUtil.get(sendURL + "?ucode=" + checkCode, 0);
+            NetUtil.get(ApiURL.CUSTOM_CHECK_CODE_SEND.buildURL(sendURL, checkCode), 0);
         } catch (CheckCodeException e) {
             return true;
         }

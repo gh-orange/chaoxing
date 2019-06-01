@@ -1,6 +1,6 @@
 package pers.cz.chaoxing.callback.checkcode.impl;
 
-import com.alibaba.fastjson.JSON;
+import net.dongliu.requests.Parameter;
 import net.dongliu.requests.RawResponse;
 import net.dongliu.requests.StatusCodes;
 import pers.cz.chaoxing.callback.checkcode.CheckCodeCallBack;
@@ -8,8 +8,6 @@ import pers.cz.chaoxing.callback.checkcode.CheckCodeData;
 import pers.cz.chaoxing.callback.checkcode.CheckCodeFactory;
 import pers.cz.chaoxing.util.Try;
 import pers.cz.chaoxing.util.io.IOUtil;
-import pers.cz.chaoxing.util.io.StringUtil;
-import pers.cz.chaoxing.util.net.ApiURL;
 import pers.cz.chaoxing.util.net.NetUtil;
 
 import java.io.IOException;
@@ -18,30 +16,29 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.stream.Stream;
 
-public class ExamCheckCodeJob extends CheckCodeJobModel implements CheckCodeCallBack<CheckCodeData> {
+public class ChapterCheckCodeJob extends CheckCodeJobModel implements CheckCodeCallBack<CheckCodeData> {
     private CheckCodeData checkCodeData;
-    private String id;
-    private String classId;
-    private String courseId;
-    private String callback;
 
-    public ExamCheckCodeJob(String checkCodePath) {
+    public ChapterCheckCodeJob(String checkCodePath) {
         super(checkCodePath);
-        this.checkCodeData = new CheckCodeData(true);
+        this.checkCodeData = new CheckCodeData(true, "", "0");
     }
 
     @Override
     public CheckCodeData onCheckCode(String... param) {
         if (lock.writeLock().tryLock()) {
             receiveURL = param[0];
+            NetUtil.getQueries(receiveURL).stream().filter(parameter -> parameter.getName().equals("cpi")).map(Parameter::getValue).findAny().ifPresent(checkCodeData::setCpi);
             baseURL = NetUtil.getOriginal(receiveURL);
             try {
                 do {
                     if (!receiveCheckCode(checkCodePath))
                         break;
-                    if (!readCheckCode(checkCodePath))
-                        IOUtil.println("check_code_image_path", checkCodePath);
-                    checkCodeData = setCheckCode(IOUtil.printAndNext("input_check_code"), param[1], param[2], param[3], param[4]);
+                    if (!checkCodeData.getCpi().equals("0")) {
+                        if (!readCheckCode(checkCodePath))
+                            IOUtil.println("check_code_image_path", checkCodePath);
+                        checkCodeData = sendCheckCode(IOUtil.printAndNext("input_check_code"));
+                    }
                 } while (!checkCodeData.isStatus());
             } finally {
                 lock.writeLock().unlock();
@@ -69,29 +66,12 @@ public class ExamCheckCodeJob extends CheckCodeJobModel implements CheckCodeCall
                     break;
             } catch (IOException ignored) {
             }
-        } while (true);
+        } while (!checkCodeData.getCpi().equals("0"));
         return true;
-    }
-
-    private CheckCodeData setCheckCode(String checkCode, String id, String classId, String courseId, String callback) {
-        this.id = id;
-        this.classId = classId;
-        this.courseId = courseId;
-        this.callback = callback;
-        return sendCheckCode(checkCode);
     }
 
     @Override
     protected CheckCodeData sendCheckCode(String checkCode) {
-        RawResponse response = Try.ever(() -> NetUtil.get(ApiURL.EXAM_CHECK_CODE_SEND.buildURL(baseURL,
-                classId,
-                courseId,
-                id,
-                callback,
-                checkCode
-        ), 0), CheckCodeFactory.CUSTOM.get());
-        String jsonStr = StringUtil.subStringBetweenFirst(response.readToText(), callback + "(", ")");
-        CheckCodeData checkCodeData = JSON.parseObject(jsonStr, CheckCodeData.class);
         checkCodeData.setCode(checkCode);
         return checkCodeData;
     }

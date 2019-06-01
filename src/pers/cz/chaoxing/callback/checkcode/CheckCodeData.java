@@ -4,6 +4,7 @@ public class CheckCodeData {
     private boolean status;
     private String code;
     private String enc;
+    private String cpi;
 
     public CheckCodeData() {
     }
@@ -12,9 +13,10 @@ public class CheckCodeData {
         this.status = status;
     }
 
-    public CheckCodeData(boolean status, String code) {
+    public CheckCodeData(boolean status, String code, String cpi) {
         this.status = status;
         this.code = code;
+        this.cpi = cpi;
     }
 
     public boolean isStatus() {
@@ -39,5 +41,17 @@ public class CheckCodeData {
 
     public void setEnc(String enc) {
         this.enc = enc;
+    }
+
+    public String getCpi() {
+        return cpi;
+    }
+
+    public void setCpi(String cpi) {
+        this.cpi = cpi;
+    }
+
+    public String toQueryString() {
+        return "&code=" + code + "&cpi=" + cpi;
     }
 }
