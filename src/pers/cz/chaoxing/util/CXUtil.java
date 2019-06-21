@@ -43,6 +43,7 @@ import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import java.lang.reflect.Type;
 import java.math.BigInteger;
+import java.net.URI;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.ZonedDateTime;
@@ -439,7 +440,8 @@ public class CXUtil {
     public static List<QuizInfo<VideoQuizData, Void>> getVideoQuizzes(String initDataUrl, String mid) throws CheckCodeException {
         Response<String> response = NetUtil.get(ApiURL.VIDEO_QUIZ.buildURL(initDataUrl, mid), 0).toTextResponse();
         List<QuizInfo<VideoQuizData, Void>> quizInfoList = JSON.parseArray(response.getBody()).toJavaObject(PLAYER_QUIZ_INFO_TYPE);
-        final String baseURL = NetUtil.getOriginal(response.getURL());
+        final URI uri = URI.create(response.getURL());
+        final String baseURL = uri.getScheme() + "://" + uri.getRawAuthority();
         quizInfoList.stream()
                 .map(QuizInfo::getDatas)
                 .flatMap(Arrays::stream)
