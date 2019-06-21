@@ -43,3 +43,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 - [x] ~~store right answers~~
 - [x] ~~using lambda rewrite~~
 - [x] ~~add key control~~
+
+# Thanks
+Part of database is supported by [Juszoe](https://github.com/cz111000/erya)
