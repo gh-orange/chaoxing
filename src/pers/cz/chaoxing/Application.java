@@ -45,12 +45,12 @@ import java.util.stream.IntStream;
 
 /**
  * @author 橙子
- * @version 1.5.0
+ * @version 1.5.1
  */
 public class Application {
 
     private static void copyright() {
-        IOUtil.println("application_name", "v1.5.0");
+        IOUtil.println("application_name", "v1.5.1");
         IOUtil.println("application_copyright");
     }
 
